@@ -1,0 +1,578 @@
+import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon, Loader2, Wallet, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useGetPickupsForDate } from '../hooks/useQueries';
+import { cn } from '@/lib/utils';
+import type { DailyTotals } from '../backend';
+import { PaymentMethod } from '../backend';
+
+interface DailyReportDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+export default function DailyReportDialog({ open, onOpenChange }: DailyReportDialogProps) {
+    const [fromDate, setFromDate] = useState<Date>();
+    const [toDate, setToDate] = useState<Date>();
+    const [showReport, setShowReport] = useState(false);
+
+    const fromDateTimestamp = fromDate ? BigInt(new Date(fromDate.setHours(0, 0, 0, 0)).getTime() * 1000000) : undefined;
+    const toDateTimestamp = toDate ? BigInt(new Date(toDate.setHours(23, 59, 59, 999)).getTime() * 1000000) : undefined;
+
+    // Fetch actual pickups directly - this is our source of truth
+    const { data: actualPickups = [], isLoading } = useGetPickupsForDate(
+        fromDateTimestamp || BigInt(0),
+        toDateTimestamp || BigInt(0)
+    );
+
+    // Process pickups: deduplicate by pickup ID and group by date
+    const processedReport = useMemo(() => {
+        if (!showReport || actualPickups.length === 0) {
+            return {
+                dailyTotals: [],
+                summary: {
+                    totalMeter: 0,
+                    totalCash: 0,
+                    totalCredit: 0,
+                    totalVoucher: 0,
+                    totalTips: 0,
+                    totalCashTips: 0,
+                    totalCreditTips: 0,
+                    totalVoucherTips: 0,
+                    totalCalculated: 0,
+                    totalOwedDriver: 0,
+                },
+            };
+        }
+
+        // First, deduplicate pickups by ID to ensure each pickup only appears once
+        const uniquePickupsMap = new Map();
+        actualPickups.forEach((pickup) => {
+            const pickupId = pickup.id.toString();
+            if (!uniquePickupsMap.has(pickupId)) {
+                uniquePickupsMap.set(pickupId, pickup);
+            }
+        });
+        const uniquePickups = Array.from(uniquePickupsMap.values());
+
+        // Group pickups by date and calculate daily totals from unique pickup data
+        const dailyTotalsMap = new Map<string, DailyTotals>();
+        
+        uniquePickups.forEach((pickup) => {
+            const dateKey = pickup.pickupDate.toString();
+            
+            if (!dailyTotalsMap.has(dateKey)) {
+                // Initialize daily totals for this date
+                dailyTotalsMap.set(dateKey, {
+                    date: pickup.pickupDate,
+                    meterTotal: 0,
+                    cashTotal: 0,
+                    creditTotal: 0,
+                    voucherTotal: 0,
+                    tipTotal: 0,
+                    cashTipTotal: 0,
+                    creditTipTotal: 0,
+                    voucherTipTotal: 0,
+                    calculatedTotal: 0,
+                    owedDriver: 0,
+                });
+            }
+            
+            const daily = dailyTotalsMap.get(dateKey)!;
+            
+            // Accumulate meter totals by payment method
+            daily.meterTotal += pickup.meterTotal;
+            if (pickup.meterPaymentMethod === PaymentMethod.cash) {
+                daily.cashTotal += pickup.meterTotal;
+            } else if (pickup.meterPaymentMethod === PaymentMethod.credit) {
+                daily.creditTotal += pickup.meterTotal;
+            } else if (pickup.meterPaymentMethod === PaymentMethod.voucher) {
+                daily.voucherTotal += pickup.meterTotal;
+            }
+            
+            // Accumulate tip totals by payment method
+            daily.tipTotal += pickup.tip;
+            if (pickup.tipPaymentMethod === PaymentMethod.cash) {
+                daily.cashTipTotal += pickup.tip;
+            } else if (pickup.tipPaymentMethod === PaymentMethod.credit) {
+                daily.creditTipTotal += pickup.tip;
+            } else if (pickup.tipPaymentMethod === PaymentMethod.voucher) {
+                daily.voucherTipTotal += pickup.tip;
+            }
+            
+            // Update calculated total
+            daily.calculatedTotal = daily.meterTotal + daily.tipTotal;
+            
+            // Calculate owed driver: ((credit + voucher) - cash) / 2 + credit tips + voucher tips
+            daily.owedDriver = ((daily.creditTotal + daily.voucherTotal - daily.cashTotal) / 2) + daily.creditTipTotal + daily.voucherTipTotal;
+        });
+
+        // Convert to array and sort chronologically (earliest date first)
+        const uniqueDailyTotals = Array.from(dailyTotalsMap.values()).sort((a, b) => {
+            const dateA = Number(a.date);
+            const dateB = Number(b.date);
+            return dateA - dateB;
+        });
+
+        // Recalculate summary totals from daily totals
+        let totalMeter = 0;
+        let totalCash = 0;
+        let totalCredit = 0;
+        let totalVoucher = 0;
+        let totalTips = 0;
+        let totalCashTips = 0;
+        let totalCreditTips = 0;
+        let totalVoucherTips = 0;
+        let totalCalculated = 0;
+
+        uniqueDailyTotals.forEach((daily) => {
+            totalMeter += daily.meterTotal;
+            totalCash += daily.cashTotal;
+            totalCredit += daily.creditTotal;
+            totalVoucher += daily.voucherTotal;
+            totalTips += daily.tipTotal;
+            totalCashTips += daily.cashTipTotal;
+            totalCreditTips += daily.creditTipTotal;
+            totalVoucherTips += daily.voucherTipTotal;
+            totalCalculated += daily.calculatedTotal;
+        });
+
+        // Calculate total owed driver: ((total credit + total voucher) - total cash) / 2 + total credit tips + total voucher tips
+        const totalOwedDriver = ((totalCredit + totalVoucher - totalCash) / 2) + totalCreditTips + totalVoucherTips;
+
+        return {
+            dailyTotals: uniqueDailyTotals,
+            summary: {
+                totalMeter,
+                totalCash,
+                totalCredit,
+                totalVoucher,
+                totalTips,
+                totalCashTips,
+                totalCreditTips,
+                totalVoucherTips,
+                totalCalculated,
+                totalOwedDriver,
+            },
+        };
+    }, [actualPickups, showReport]);
+
+    // Validate calculations against actual pickup records
+    const validationResult = useMemo(() => {
+        if (!processedReport || !showReport || actualPickups.length === 0) {
+            return { isValid: true, errors: [] };
+        }
+
+        const errors: string[] = [];
+
+        // Deduplicate pickups by ID for validation
+        const uniquePickupsMap = new Map();
+        actualPickups.forEach((pickup) => {
+            const pickupId = pickup.id.toString();
+            if (!uniquePickupsMap.has(pickupId)) {
+                uniquePickupsMap.set(pickupId, pickup);
+            }
+        });
+        const uniquePickups = Array.from(uniquePickupsMap.values());
+
+        // Calculate totals from unique actual pickups
+        let actualMeterCash = 0;
+        let actualMeterCredit = 0;
+        let actualMeterVoucher = 0;
+        let actualTipCash = 0;
+        let actualTipCredit = 0;
+        let actualTipVoucher = 0;
+
+        uniquePickups.forEach((pickup) => {
+            // Meter totals by payment method
+            if (pickup.meterPaymentMethod === PaymentMethod.cash) {
+                actualMeterCash += pickup.meterTotal;
+            } else if (pickup.meterPaymentMethod === PaymentMethod.credit) {
+                actualMeterCredit += pickup.meterTotal;
+            } else if (pickup.meterPaymentMethod === PaymentMethod.voucher) {
+                actualMeterVoucher += pickup.meterTotal;
+            }
+
+            // Tip totals by payment method
+            if (pickup.tipPaymentMethod === PaymentMethod.cash) {
+                actualTipCash += pickup.tip;
+            } else if (pickup.tipPaymentMethod === PaymentMethod.credit) {
+                actualTipCredit += pickup.tip;
+            } else if (pickup.tipPaymentMethod === PaymentMethod.voucher) {
+                actualTipVoucher += pickup.tip;
+            }
+        });
+
+        const actualTotalMeter = actualMeterCash + actualMeterCredit + actualMeterVoucher;
+        const actualTotalTips = actualTipCash + actualTipCredit + actualTipVoucher;
+        const actualTotalCalculated = actualTotalMeter + actualTotalTips;
+        
+        // Calculate actual owed driver using the correct formula:
+        // ((credit meter + voucher meter) - cash meter) / 2 + credit tips + voucher tips
+        const actualOwedDriver = ((actualMeterCredit + actualMeterVoucher - actualMeterCash) / 2) + actualTipCredit + actualTipVoucher;
+
+        // Compare with report summary (with tolerance for floating point precision)
+        const tolerance = 0.01;
+
+        if (Math.abs(processedReport.summary.totalCash - actualMeterCash) > tolerance) {
+            errors.push(`Cash meter mismatch: Report shows ${processedReport.summary.totalCash.toFixed(2)}, actual is ${actualMeterCash.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalCredit - actualMeterCredit) > tolerance) {
+            errors.push(`Credit meter mismatch: Report shows ${processedReport.summary.totalCredit.toFixed(2)}, actual is ${actualMeterCredit.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalVoucher - actualMeterVoucher) > tolerance) {
+            errors.push(`Voucher meter mismatch: Report shows ${processedReport.summary.totalVoucher.toFixed(2)}, actual is ${actualMeterVoucher.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalMeter - actualTotalMeter) > tolerance) {
+            errors.push(`Total meter mismatch: Report shows ${processedReport.summary.totalMeter.toFixed(2)}, actual is ${actualTotalMeter.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalCashTips - actualTipCash) > tolerance) {
+            errors.push(`Cash tips mismatch: Report shows ${processedReport.summary.totalCashTips.toFixed(2)}, actual is ${actualTipCash.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalCreditTips - actualTipCredit) > tolerance) {
+            errors.push(`Credit tips mismatch: Report shows ${processedReport.summary.totalCreditTips.toFixed(2)}, actual is ${actualTipCredit.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalVoucherTips - actualTipVoucher) > tolerance) {
+            errors.push(`Voucher tips mismatch: Report shows ${processedReport.summary.totalVoucherTips.toFixed(2)}, actual is ${actualTipVoucher.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalTips - actualTotalTips) > tolerance) {
+            errors.push(`Total tips mismatch: Report shows ${processedReport.summary.totalTips.toFixed(2)}, actual is ${actualTotalTips.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalCalculated - actualTotalCalculated) > tolerance) {
+            errors.push(`Total calculated mismatch: Report shows ${processedReport.summary.totalCalculated.toFixed(2)}, actual is ${actualTotalCalculated.toFixed(2)}`);
+        }
+        if (Math.abs(processedReport.summary.totalOwedDriver - actualOwedDriver) > tolerance) {
+            errors.push(`Owed driver mismatch: Report shows ${processedReport.summary.totalOwedDriver.toFixed(2)}, actual is ${actualOwedDriver.toFixed(2)}`);
+        }
+
+        // Deduplicate pickups by ID for count
+        const uniquePickupCount = uniquePickups.length;
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            uniquePickupCount,
+            actualValues: {
+                meterCash: actualMeterCash,
+                meterCredit: actualMeterCredit,
+                meterVoucher: actualMeterVoucher,
+                tipCash: actualTipCash,
+                tipCredit: actualTipCredit,
+                tipVoucher: actualTipVoucher,
+                totalMeter: actualTotalMeter,
+                totalTips: actualTotalTips,
+                totalCalculated: actualTotalCalculated,
+                owedDriver: actualOwedDriver,
+            },
+        };
+    }, [processedReport, actualPickups, showReport]);
+
+    const handleGenerateReport = () => {
+        if (fromDate && toDate) {
+            setShowReport(true);
+        }
+    };
+
+    const handleDialogChange = (newOpen: boolean) => {
+        if (!newOpen) {
+            setShowReport(false);
+            setFromDate(undefined);
+            setToDate(undefined);
+        }
+        onOpenChange(newOpen);
+    };
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(amount);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={handleDialogChange}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Daily Report</DialogTitle>
+                    <DialogDescription>
+                        Select a date range to view your pickup totals and payment breakdowns
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                            <label className="text-sm font-medium mb-2 block">From Date</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            'w-full justify-start text-left font-normal',
+                                            !fromDate && 'text-muted-foreground'
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {fromDate ? format(fromDate, 'PPP') : 'Pick a date'}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={fromDate}
+                                        onSelect={setFromDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        <div className="flex-1">
+                            <label className="text-sm font-medium mb-2 block">To Date</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            'w-full justify-start text-left font-normal',
+                                            !toDate && 'text-muted-foreground'
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {toDate ? format(toDate, 'PPP') : 'Pick a date'}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={toDate}
+                                        onSelect={setToDate}
+                                        initialFocus
+                                        disabled={(date) => fromDate ? date < fromDate : false}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+
+                    <Button
+                        onClick={handleGenerateReport}
+                        disabled={!fromDate || !toDate || isLoading}
+                        className="w-full"
+                    >
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating Report...
+                            </>
+                        ) : (
+                            'Generate Report'
+                        )}
+                    </Button>
+
+                    {showReport && !validationResult.isValid && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Calculation Validation Errors</AlertTitle>
+                            <AlertDescription>
+                                <ul className="list-disc list-inside space-y-1 mt-2">
+                                    {validationResult.errors.map((error, index) => (
+                                        <li key={index} className="text-sm">{error}</li>
+                                    ))}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {showReport && processedReport && (
+                        <div className="space-y-6 border-t pt-6">
+                            {processedReport.dailyTotals.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    No pickups found for the selected date range
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">Daily Breakdown</h3>
+                                        <div className="space-y-4">
+                                            {processedReport.dailyTotals.map((daily) => (
+                                                <div key={daily.date.toString()} className="border rounded-lg p-4 bg-card">
+                                                    <h4 className="font-medium mb-3">
+                                                        {format(new Date(Number(daily.date) / 1000000), 'PPPP')}
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-muted-foreground mb-2">
+                                                                Meter Totals
+                                                            </p>
+                                                            <div className="space-y-1 text-sm">
+                                                                <div className="flex justify-between">
+                                                                    <span>Cash:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.cashTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span>Credit:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.creditTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span>Voucher:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.voucherTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between pt-1 border-t font-semibold">
+                                                                    <span>Total:</span>
+                                                                    <span>{formatCurrency(daily.meterTotal)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-muted-foreground mb-2">
+                                                                Tip Totals
+                                                            </p>
+                                                            <div className="space-y-1 text-sm">
+                                                                <div className="flex justify-between">
+                                                                    <span>Cash:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.cashTipTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span>Credit:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.creditTipTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span>Voucher:</span>
+                                                                    <span className="font-medium">{formatCurrency(daily.voucherTipTotal)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between pt-1 border-t font-semibold">
+                                                                    <span>Total:</span>
+                                                                    <span>{formatCurrency(daily.tipTotal)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t">
+                                                        <div className="flex justify-between font-semibold text-primary">
+                                                            <span>Daily Total (Meter + Tips):</span>
+                                                            <span>{formatCurrency(daily.calculatedTotal)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t bg-accent/30 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <Wallet className="h-4 w-4 text-primary" />
+                                                                <span className="font-semibold">Owed Driver:</span>
+                                                            </div>
+                                                            <span className={`font-bold text-lg ${daily.owedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                                                {daily.owedDriver >= 0 ? '+' : ''}{formatCurrency(daily.owedDriver)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-muted-foreground">
+                                                            Formula: ((Credit ${daily.creditTotal.toFixed(2)} + Voucher ${daily.voucherTotal.toFixed(2)}) - Cash ${daily.cashTotal.toFixed(2)}) ÷ 2 + Credit Tips ${daily.creditTipTotal.toFixed(2)} + Voucher Tips ${daily.voucherTipTotal.toFixed(2)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-6">
+                                        <h3 className="text-lg font-semibold mb-4">Summary Totals</h3>
+                                        <div className="border rounded-lg p-4 bg-primary/5">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                                                        Total Meter
+                                                    </p>
+                                                    <div className="space-y-1 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span>Cash:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCash)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span>Credit:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCredit)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span>Voucher:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalVoucher)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between pt-1 border-t font-semibold">
+                                                            <span>Total:</span>
+                                                            <span>{formatCurrency(processedReport.summary.totalMeter)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                                                        Total Tips
+                                                    </p>
+                                                    <div className="space-y-1 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span>Cash:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCashTips)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span>Credit:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCreditTips)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span>Voucher:</span>
+                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalVoucherTips)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between pt-1 border-t font-semibold">
+                                                            <span>Total:</span>
+                                                            <span>{formatCurrency(processedReport.summary.totalTips)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t">
+                                                <div className="flex justify-between text-lg font-bold text-primary">
+                                                    <span>Grand Total (Meter + Tips):</span>
+                                                    <span>{formatCurrency(processedReport.summary.totalCalculated)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t bg-accent/50 -mx-4 -mb-4 px-4 py-4 rounded-b-lg">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Wallet className="h-5 w-5 text-primary" />
+                                                        <span className="text-lg font-bold">Total Owed Driver:</span>
+                                                    </div>
+                                                    <span className={`font-bold text-2xl ${processedReport.summary.totalOwedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                                        {processedReport.summary.totalOwedDriver >= 0 ? '+' : ''}{formatCurrency(processedReport.summary.totalOwedDriver)}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 text-xs text-muted-foreground">
+                                                    Formula: ((Total Credit ${processedReport.summary.totalCredit.toFixed(2)} + Total Voucher ${processedReport.summary.totalVoucher.toFixed(2)}) - Total Cash ${processedReport.summary.totalCash.toFixed(2)}) ÷ 2 + Total Credit Tips ${processedReport.summary.totalCreditTips.toFixed(2)} + Total Voucher Tips ${processedReport.summary.totalVoucherTips.toFixed(2)}
+                                                </div>
+                                                {validationResult.isValid && (
+                                                    <div className="mt-2 text-xs text-green-600 dark:text-green-500 flex items-center gap-1">
+                                                        <span>✓</span>
+                                                        <span>Verified against {validationResult.uniquePickupCount} unique pickup records</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}

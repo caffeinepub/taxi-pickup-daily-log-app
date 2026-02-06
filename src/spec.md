@@ -1,0 +1,512 @@
+# Taxi Pickup Daily Log App
+
+## Overview
+A daily logging application for taxi drivers to record and manage their passenger pickups throughout the day. Users must authenticate with Internet Identity to access the application and set up their profile.
+
+## Authentication & User Management
+
+### Internet Identity Login
+- Users must sign in with Internet Identity to access the application
+- Unauthenticated users cannot view or record any pickup data
+- Secure authentication flow with Internet Identity integration
+- After successful authentication, the system automatically checks if the user has a profile
+- If no profile exists, users are automatically redirected to the account setup flow
+- Clear guidance for new users to complete account creation after authentication
+- When users log out and log back in with a different Internet Identity account, all profile information and application data must be immediately refreshed to reflect the currently authenticated user
+- No cached or stale profile data from previous sessions should persist when switching between different user accounts
+- Profile information display must always correspond to the currently logged-in user's Internet Identity principal
+
+### Account Setup
+- First-time users are automatically offered the account setup flow after successful authentication
+- Profile setup includes:
+  - Driver name
+  - Contact information
+  - Email address (optional field with email format validation when provided)
+- Account setup is required before accessing main application features
+- Profile information can be updated later through the profile management interface
+- Seamless transition from login to account setup for new users
+- Email field validation ensures proper email format when an email is provided, but allows empty values
+- Profile save functionality must work reliably with proper error handling and user feedback
+
+### Profile Management
+- Accessible through the user dropdown menu or hamburger menu as "Edit Profile"
+- Allow authenticated users to view and edit their profile information including:
+  - Driver name
+  - Contact information
+  - Email address (optional field with email format validation when provided)
+- Profile edit form pre-populated with current user information
+- Profile information must always reflect the currently authenticated user's data, with no stale data from previous login sessions
+- When switching between different user accounts, profile data must be immediately refreshed from the backend to ensure accuracy
+- Email field validation with real-time feedback for proper email format when an email is entered, but allows empty values
+- "Save" and "Cancel" buttons for profile updates
+- Profile save/update functionality must work reliably with proper backend integration
+- Clear success messaging when profile updates are saved successfully with confirmation that changes were persisted
+- Comprehensive error messaging for validation failures or save errors with specific details about what went wrong
+- Updated profile information is immediately reflected throughout the application after successful save
+- Robust error handling for network issues, backend errors, and validation failures
+- User feedback must clearly indicate whether the save operation succeeded or failed
+- Only accessible to authenticated users
+
+### Logout & User Switching
+- Visible "Log Out" option always accessible in the hamburger menu for all authenticated users
+- Logout completely clears session state and returns to login page
+- Session management prevents any cross-contamination between different user sessions
+- Users can easily switch between different accounts by logging out and logging in with a different Internet Identity
+
+## Core Features
+
+### Navigation
+- App header includes a hamburger menu button for accessing additional features
+- Hamburger menu contains navigation options including "Daily Report", "Edit/Delete Record", "Delete All Records", "Generate PDF Report", "Cycle Balance", "Export/Import Data", "Edit Profile", "About", and "Log Out"
+- "Log Out" option is always visible and accessible in the hamburger menu for all authenticated users
+
+### About Page
+- Accessible through the hamburger menu as "About" (positioned before "Log Out" menu item)
+- Display copyright information: "Copyright 2025"
+- Display contact information: "Gene Townsend" at genetownend@gmail.com
+- Styled consistently with the rest of the application
+- Easily accessible from the hamburger menu
+- Only accessible to authenticated users
+
+### Cycle Balance Monitoring
+- Accessible through the hamburger menu as "Cycle Balance"
+- Display the current cycle balance (remaining computational resources) for the canister
+- Present the cycle balance in a user-friendly format with clear labeling
+- Show the balance in a readable format (e.g., "1.2T cycles" for trillions)
+- Include explanatory text about what cycles represent (computational resources)
+- Refresh capability to get the most current balance information
+- Only accessible to authenticated users
+
+### Export/Import Data
+- Accessible through the hamburger menu as "Export/Import Data"
+- Export functionality:
+  - Allow users to download all their pickup records and customer data in a comprehensive JSON format
+  - Export file contains all fields necessary to fully recreate the user's database including pickup records with all details (pickup date, pickup time, street address, city, customer name, phone number, destination address, meter total, payment method, tip, tip payment method) and customer data (names, street addresses, cities, phone numbers)
+  - Export must include every pickup record exactly once with complete accuracy for all meter totals, tip amounts, and payment method details
+  - Export data must maintain perfect consistency with the current state of the application including all calculated totals and payment method breakdowns
+  - Export file is named with a timestamp for easy identification
+  - Clear download process with user confirmation
+  - Export only includes data for the authenticated user
+- Import functionality:
+  - Allow users to upload a previously exported JSON file to restore pickup and customer records
+  - File upload interface with drag-and-drop capability and file selection button
+  - Support JSON file format matching the export structure
+  - File validation to ensure the uploaded file is valid JSON and contains the expected data structure
+  - Comprehensive data validation including:
+    - Verify file contains pickup records and customer data arrays
+    - Validate required fields in pickup records (pickup date, pickup time, street address, destination address)
+    - Validate data types and formats for all fields
+    - Check for data integrity and consistency
+    - Enhanced date/time parsing logic that correctly handles both numeric timestamps and ISO 8601 date/time strings for pickupDate and pickupTime fields
+    - Automatic conversion of ISO 8601 date/time strings to timestamps when needed during import processing
+  - Display a detailed preview of the data to be imported before confirmation showing:
+    - Number of pickup records to be imported
+    - Number of customer records to be imported
+    - Date range of pickup records with properly formatted dates and times instead of "Invalid Date"
+    - Sample of pickup and customer data for user verification with consistent date/time formatting matching the app's display format
+  - Clear warning message that importing will completely replace all existing pickup and customer data
+  - Require explicit user confirmation with "Import Data" and "Cancel" buttons before proceeding with data replacement
+  - Progress indicator during the import process
+  - Import process must properly reindex all imported pickups under their corresponding customers, preserving all calculated totals, payment method accuracy, and driver associations
+  - Import must ensure that all pickup records are correctly associated with their respective customer records, maintaining data integrity across both pickup and customer databases
+  - After import completion, all daily totals, running calculations, and payment method breakdowns must exactly match the pre-export state
+  - Import process must rebuild customer pickup history arrays with complete accuracy, ensuring each pickup appears exactly once in the correct customer's history
+  - Import process must prevent duplicate pickup entries from being created during import operations
+  - Backend must implement robust deduplication logic during import to ensure no duplicate pickup records are created
+  - Import must maintain perfect synchronization between pickup records and customer histories, preventing any mismatches or inconsistencies
+  - After import, all linked data between pickups and customers must remain synchronized with no data integrity issues
+  - Error handling for invalid, corrupted, or incompatible files with specific error messages
+  - Success confirmation after successful import completion with summary of imported records
+  - Automatic refresh of the application state to immediately reflect the newly imported data including:
+    - Updated pickup list display
+    - Refreshed customer database for auto-population
+    - Updated daily totals and running calculations that exactly match pre-export values
+    - Cleared any cached data to ensure consistency
+    - Verification that "Owed Driver" calculations and all payment method breakdowns are identical to pre-export state
+- Security measures:
+  - File size limits to prevent abuse (maximum 10MB)
+  - Data validation to ensure imported data structure matches expected format
+  - Secure file processing without exposing sensitive information
+- User-friendly interface with clear instructions and warnings about data replacement
+- Only accessible to authenticated users
+
+### Pickup Recording
+- Record individual pickups with the following information:
+  - Pickup date (required field with calendar date picker, defaulting to today's date)
+  - Street Address (required field for pickup location)
+  - City (optional field for pickup location)
+  - Customer name (optional)
+  - Phone number (optional)
+  - Pickup time (required field, manually adjustable with default set to 20 minutes after current time) - The pickup time entered by the user in the form must be accurately captured and saved to the backend exactly as entered
+  - Destination address (required field)
+  - Meter Total (optional number input for the fare amount)
+  - Payment Method (optional dropdown selection with options: "Cash", "Credit", "Voucher")
+  - Tip (optional number input for tip amount)
+  - Tip Payment Method (optional dropdown selection with options: "Cash", "Credit", "Voucher", defaulting to the selected meter payment method but allowing independent selection)
+  - Calculated Total (read-only field showing the sum of meter total and tip)
+- Enhanced form interface with improved visual design and user experience
+- Clear section headings and well-spaced layout for easy data entry
+- Visually distinct input fields with proper labeling
+- Required fields (pickup date and pickup time) are clearly marked as mandatory with visual indicators such as red asterisks
+- Form validation prevents submission if pickup date or pickup time is missing
+- Display helpful error messages when required fields are not filled
+- Enhanced customer lookup with improved search functionality that works with the new street address and city fields
+- Manual pickup time input with default value automatically set to 20 minutes after the current time when the form opens
+- Users can adjust the pickup time as needed before saving
+- The pickup time value must be correctly captured from the form input and transmitted to the backend for storage
+- Clickable pickup date field that opens a calendar date picker for easy date selection
+- The pickup date field only affects new entries being created and does not retroactively change the pickup date of existing records
+- Taxi-themed visual accents including relevant icons and color highlights
+- Auto-population of customer information based on street address, city, or phone number matching
+- Only accessible to authenticated users
+
+### Customer Management
+- Customer lookup functionality when entering names, street addresses, cities, or phone numbers
+- Auto-populate customer name when a matching street address and city combination is found in customer records
+- Auto-populate customer name, street address, and city when a matching phone number is entered
+- Suggest existing customers from previous pickups based on any matching field
+- Allow creation of new customers if not found
+- Store customer information including names, street addresses, cities, and phone numbers for future reference
+- Customer data is user-specific and private to each authenticated driver
+- When switching between different user accounts, customer data must be immediately refreshed to show only the currently authenticated user's customers
+
+### Daily Log Display
+- Display a chronological list of all pickups for the date currently selected in the pickup date field
+- When the pickup date field is changed, the pickup list and running totals automatically update to show only pickups for the newly selected date
+- Existing pickup records retain their original pickup date regardless of changes to the date picker
+- Show all pickup details including pickup date, pickup time, phone numbers, street address, city, meter total, payment method, tip, tip payment method, and calculated total in an organized format
+- The pickup time must be correctly displayed for each pickup entry exactly as it was entered by the user when the record was created
+- Clear visual separation between different pickup entries
+- Display running totals beneath the list of pickups for the selected date showing:
+  - Total meter amount for all pickups on the selected date broken down by payment method (Cash, Credit, Voucher)
+  - Total tip amount for all pickups on the selected date broken down by tip payment method (Cash, Credit, Voucher)
+  - Total calculated amount (meter + tips) for all pickups on the selected date broken down by payment method combination
+  - Grand totals for meter, tip, and calculated amounts across all payment methods for the selected date
+  - Owed Driver calculation for the selected date: ((meter credit + meter voucher) - meter cash) / 2 + credit tips + voucher tips (may be positive or negative)
+- Running totals are clearly labeled and visually distinct for easy review with payment method breakdowns
+- Owed Driver amount is prominently displayed with clear labeling
+- Only show pickups for the authenticated user
+- Daily totals must use the exact same pickup records that are displayed in the pickup list for the selected date
+- When switching between different user accounts, pickup data must be immediately refreshed to show only the currently authenticated user's pickups
+
+### Edit/Delete Record
+- Accessible through the hamburger menu as "Edit/Delete Record"
+- Display a date picker control defaulting to today's date
+- After a date is selected, show a list of all pickup records for that date for the authenticated user
+- Each record in the list displays key identifying information (pickup time, street address, customer name if available)
+- Allow user to select a specific record from the list
+- Upon record selection, provide two action options: "Edit" and "Delete"
+- Edit functionality:
+  - Open an edit form pre-populated with all current field values from the selected pickup record
+  - Allow modification of any field including pickup date, pickup time, street address, city, customer name, phone number, destination address, meter total, payment method, tip, and tip payment method
+  - The edit dialog must have a fixed layout structure with a scrollable content area for the form fields and a fixed footer containing the action buttons
+  - The form content area must be scrollable when the form fields exceed the available space, allowing users to access all form fields
+  - "Save" and "Cancel" buttons must be positioned in a fixed footer at the bottom of the dialog that remains visible at all times
+  - The fixed footer with action buttons must never scroll out of view or become hidden, regardless of form length or screen size
+  - "Save" and "Cancel" buttons must be larger in size with clear, helpful icons and messaging
+  - "Save" button includes a save icon and helpful text like "Save Changes"
+  - "Cancel" button includes a cancel/close icon and helpful text like "Cancel Changes"
+  - Both buttons are prominently positioned and easily accessible with appropriate styling
+  - "Save" button submits any changes made to the record and updates the existing record in the backend
+  - Frontend edit form submission triggers full synchronization update in the backend
+  - "Cancel" button discards any changes and closes the edit form without saving
+  - Display confirmation messaging upon successful save or error messaging if save fails
+  - Return to the record list after successful save or when cancel is selected
+- Delete functionality:
+  - Display a confirmation dialog asking the user to confirm deletion of the specific pickup record
+  - Show key details of the record being deleted (pickup time, street address, customer name) in the confirmation dialog
+  - If confirmed, delete the specific pickup record from the backend
+  - If cancelled, return to the record list without making changes
+  - Update the record list display after successful deletion
+- Only show and allow editing/deletion of records for the authenticated user
+- Maintain data integrity and update all related displays after edit or delete operations
+
+### Daily Report
+- Accessible through the hamburger menu as "Daily Report"
+- Display a modal or page with from/to date picker controls
+- Allow users to select a custom date range for reporting
+- Generate comprehensive reports showing daily totals for the selected date range including:
+  - Daily breakdown of meter totals by payment method (Cash, Credit, Voucher)
+  - Daily breakdown of tip totals by payment method (Cash, Credit, Voucher)
+  - Daily breakdown of calculated totals (meter + tips)
+  - Payment method breakdowns for each day in the selected range
+  - Daily Owed Driver calculation for each day: ((meter credit + meter voucher) - meter cash) / 2 + credit tips + voucher tips
+  - Summary totals across the entire selected date range with accurate Owed Driver calculation: ((total meter credit + total meter voucher) - total meter cash) / 2 + total credit tips + total voucher tips
+- Daily detail section displays each day's records in strict chronological order (sorted by pickup time from earliest to latest) within the selected date range
+- Each pickup record must appear exactly once per day in the daily breakdown, with absolutely no duplicate entries
+- Daily report must use the exact same pickup records and calculation logic as the daily totals displayed in the main pickup list view
+- Both daily totals and daily report must query the same backend data source and apply identical filtering criteria to ensure complete consistency
+- Backend must implement robust deduplication logic to ensure each pickup record appears only once per day in the daily report
+- Frontend must implement strict record grouping by date to prevent duplicate display of the same pickup record within a single day
+- Report data must include accurate pickup times for each record exactly as they were originally entered by the user
+- Report data is user-specific and only shows pickups for the authenticated user
+- Clear presentation of report data with organized layout and visual separation showing street address and city separately
+- Owed Driver amounts are clearly displayed for each day and in summary totals with accurate calculation logic
+- All records shown in the daily report must be unique within each day, with comprehensive validation to prevent any duplicate entries
+- Comprehensive validation ensures that daily report totals exactly match the sum of all underlying unique pickup records for the selected date range
+- Frontend implements rigorous data validation to verify that meter, tip, and payment method breakdowns are mathematically accurate across multiple days using only unique records
+- All calculation logic must be validated and tested to ensure production-ready accuracy with no mismatch errors between displayed totals and actual pickup records
+- Multi-day report calculations must properly aggregate data across all selected dates with accurate totals and Owed Driver calculations based on unique records only
+
+### PDF Report Generation
+- Accessible through the hamburger menu as "Generate PDF Report"
+- Generate a comprehensive PDF document summarizing the full specifications of the taxi pickup log application
+- PDF includes all major features, data fields, user flows, validation rules, calculation formulas, and UI components
+- PDF content covers:
+  - Application overview and purpose
+  - Authentication and user management flows
+  - Complete pickup recording process and data fields
+  - Customer management functionality
+  - Daily log display and running totals
+  - Edit/Delete record operations
+  - Daily report generation with date ranges
+  - Delete all records functionality
+  - Cycle balance monitoring functionality
+  - Export/Import data functionality
+  - Profile management functionality
+  - About page functionality
+  - Data storage requirements
+  - User interface components and navigation
+  - Calculation formulas including the "Owed Driver" formula: ((meter credit + meter voucher) - meter cash) / 2 + credit tips + voucher tips
+  - Validation rules and error handling
+- PDF is well-organized with clear sections and professional formatting
+- Suitable for sharing with stakeholders, developers, or for documentation purposes
+- Generated PDF is downloadable by the user
+- Only accessible to authenticated users
+
+### Delete All Records
+- Accessible through the hamburger menu as "Delete All Records"
+- When selected, display a confirmation dialog asking the user to confirm the deletion of all pickup records and customer data
+- Confirmation dialog should clearly warn the user that this action cannot be undone
+- If the user confirms, delete all pickup records and customer data for the authenticated user
+- After successful deletion, update the UI to reflect the empty state (no pickups displayed, running totals reset to zero)
+- If the user cancels, close the dialog without making any changes
+- Only affects data for the authenticated user
+
+## Data Storage
+
+### Backend Storage
+- Store user profiles with driver information linked to Internet Identity principals including:
+  - Driver name
+  - Contact information
+  - Email address (optional field with validation when provided)
+- Profile storage must be reliable and persistent with proper error handling
+- Backend must handle profile creation and updates correctly with comprehensive validation
+- Backend must ensure that profile data retrieval is always based on the currently authenticated user's Internet Identity principal
+- Backend must implement proper user isolation to prevent cross-contamination of profile data between different user accounts
+- Backend must implement complete session cleanup functionality to clear all authentication tokens upon logout
+- Backend must support session state management to ensure fresh authentication is required after logout operations
+- Store all pickup records with unique identifiers and complete pickup information including pickup date, pickup time (exactly as entered by the user in the form), street address (required), city (optional), phone numbers (optional), meter total (optional), payment method (optional), tip amounts (optional), tip payment method (optional), associated with the authenticated user
+- Each pickup record must have a unique identifier to enable individual record editing and deletion operations
+- The backend must receive and store the exact pickup time value provided by the user from the frontend form
+- Maintain a customer database with names, street addresses, cities, phone numbers, and associated pickup history for each user
+- Store application specification data for PDF generation including all features, data fields, user flows, validation rules, and calculation formulas
+- Persist data across sessions and days
+- Ensure data isolation between different users
+- Backend must implement strict user-based data filtering to ensure that when users switch accounts, only the currently authenticated user's data is returned
+
+### Data Operations
+- Authenticate users with Internet Identity
+- Implement complete logout functionality that clears all session tokens and authentication state
+- Provide session cleanup endpoints to ensure no residual authentication state persists after logout
+- Support session state validation to prevent unauthorized access with expired or cleared sessions
+- Check if authenticated user has an existing profile
+- Create and update user profiles including optional email address with validation when provided
+- Profile creation and update operations must be robust and reliable with proper error handling and validation
+- Retrieve user profile information for display and editing based on the currently authenticated user's Internet Identity principal
+- Backend must always verify the current user's identity before returning profile data to prevent stale data issues
+- Update user profile information including optional email address with proper validation when provided and reliable persistence
+- Validate email format for profile creation and updates when an email is provided, but allow empty values
+- Profile save operations must provide clear success or failure responses to the frontend
+- Query the canister's current cycle balance and return it in a readable format
+- Export all pickup records and customer data for the authenticated user in JSON format containing all necessary fields for database recreation
+- Export must include every pickup record exactly once with complete accuracy for all meter totals, tip amounts, and payment method details
+- Export data must maintain perfect consistency with the current application state including all calculated totals and payment method breakdowns
+- Import pickup records and customer data from uploaded JSON files with comprehensive validation including:
+  - File format validation to ensure valid JSON structure
+  - Data structure validation to verify expected pickup and customer record formats
+  - Field validation for required fields (pickup date, pickup time, street address, destination address)
+  - Data type validation for all numeric and date fields
+  - Data integrity checks to ensure consistency and completeness
+- Replace all existing pickup and customer data for the authenticated user with imported data after validation and confirmation
+- Import process must properly reindex all imported pickups under their corresponding customers, preserving all calculated totals, payment method accuracy, and driver associations
+- Import must ensure that all pickup records are correctly associated with their respective customer records, maintaining complete data integrity across both pickup and customer databases
+- Import process must rebuild customer pickup history arrays with complete accuracy, ensuring each pickup appears exactly once in the correct customer's history
+- After import completion, all daily totals, running calculations, and payment method breakdowns must exactly match the pre-export state
+- Import must verify that "Owed Driver" calculations and all payment method breakdowns are identical to pre-export values
+- Backend must implement robust deduplication logic during import operations to prevent duplicate pickup entries from being created
+- Import process must maintain perfect synchronization between pickup records and customer histories, preventing any mismatches or data integrity issues
+- Backend must implement comprehensive validation to ensure that after export, delete, and restore cycles, all totals including Owed Driver calculations, meter totals, and payment method breakdowns remain accurate and consistent with the original data
+- Provide detailed validation results and error messages for invalid import files
+- Return import summary information including number of records processed and any validation warnings
+- Save new pickup records with pickup date, pickup time (exactly as entered by the user), street address (required), city (optional), phone numbers (optional), meter total (optional), payment method (optional), tip amounts (optional), and tip payment method (optional) for authenticated users
+- The backend must correctly receive and store the pickup time value transmitted from the frontend
+- Retrieve customer suggestions based on partial matches for names, street addresses, cities, or phone numbers for the current user
+- Auto-populate customer fields when matching street addresses and cities or phone numbers are found in user's data
+- Fetch all pickups for a specific date for the authenticated user, including pickup date, pickup time, street address, city, meter total, payment method, tip values, and tip payment method
+- The backend must return the exact pickup time as it was originally stored when fetching pickup records
+- Fetch pickups for a specified date range for the authenticated user to generate daily reports, sorted chronologically by pickup time from earliest to latest
+- Backend must use consistent data retrieval logic for both daily totals and daily report queries to ensure identical pickup records are returned for any given date
+- Backend must implement unified pickup retrieval functions that guarantee the same set of unique records is returned whether querying for daily display or daily report generation
+- Backend must implement robust deduplication mechanisms to ensure each pickup record appears only once per day in all query results
+- Backend must provide comprehensive validation to prevent duplicate records from being returned in daily report queries
+- Backend must implement comprehensive validation and testing of all calculation logic to ensure production-ready accuracy
+- Backend must provide accurate aggregation functions for multi-day date ranges that properly sum meter totals, tip totals, and calculate correct Owed Driver amounts across all selected dates using only unique records
+- Retrieve a specific pickup record by unique identifier for editing purposes
+- Update an existing pickup record with modified field values while maintaining the unique identifier
+- When updating an existing pickup record, the backend must implement complete data synchronization to ensure the corresponding entry in the customer's pickup history array is updated with exactly the same data including all payment methods, totals, timing, and all other field values
+- Backend must implement robust synchronization logic that maintains perfect data consistency between pickup records and customer pickup history arrays for all update operations
+- If a pickup's customer name, street address, or city changes during update, the backend must remove the entry from the old customer record's pickup history and move it to the correct customer's history with all updated field values
+- Backend must handle customer record creation if the updated pickup references a customer that doesn't exist
+- Backend must maintain complete data integrity across pickup records and customer pickup histories during all update operations to eliminate any inconsistencies or conflicting data between the two data sources
+- Backend must implement comprehensive validation to ensure that after any pickup update operation, the pickup record and its corresponding customer history entry contain identical data for all fields including payment methods, amounts, and timing
+- Delete a specific pickup record by unique identifier
+- When deleting a pickup record, the backend must also remove the corresponding entry from the customer's pickup history array to maintain data consistency
+- Create new customer entries when needed with all available information for the current user
+- Delete all pickup records and customer data for the authenticated user when requested
+- Generate PDF documents containing comprehensive application specifications, features, data fields, user flows, validation rules, and calculation formulas
+- Calculate Owed Driver amounts using the formula: ((meter credit + meter voucher) - meter cash) / 2 + credit tips + voucher tips
+- All backend calculation functions must be thoroughly validated to prevent mismatch errors in production
+- Backend must ensure accurate calculation logic for multi-day reports with proper aggregation of payment method totals and Owed Driver calculations based on unique records only
+- All data operations must be strictly filtered by the currently authenticated user's Internet Identity principal to prevent data leakage between user accounts
+
+## User Interface
+- Clean, mobile-friendly interface suitable for use in vehicles
+- Internet Identity login screen with secure authentication flow
+- Automatic redirection to account setup for new users after successful authentication
+- Clear guidance and messaging for new users during the signup flow
+- Account setup screen for new users with profile form including optional email field with validation when provided
+- Profile save functionality must provide clear user feedback on success or failure
+- App header with hamburger menu button for navigation
+- Hamburger menu with "Daily Report", "Edit/Delete Record", "Delete All Records", "Generate PDF Report", "Cycle Balance", "Export/Import Data", "Edit Profile", "About", and "Log Out" options
+- "Log Out" option prominently displayed and always accessible in the hamburger menu for all authenticated users
+- All logout functionality ensures complete session cleanup and returns users to the login page
+- Profile Management interface accessible through hamburger menu as "Edit Profile" with:
+  - Form pre-populated with current user profile information
+  - Profile form must always refresh and display data for the currently authenticated user when accessed
+  - Frontend must clear any cached profile data when users switch accounts to ensure fresh data is loaded
+  - Editable fields for driver name, contact information, and optional email address
+  - Email field validation with real-time feedback for proper email format when an email is entered, but allows empty values
+  - Clear visual indication that the email field is optional
+  - "Save" and "Cancel" buttons for profile updates
+  - Reliable save functionality with proper backend integration and error handling
+  - Clear success messaging for successful profile updates with confirmation that data was saved
+  - Comprehensive error messaging for validation failures or save errors with specific details about the problem
+  - Loading indicators during save operations to provide user feedback
+  - Clear visual indicators for required fields and validation status
+  - Robust error handling for network issues, backend failures, and validation problems
+- About page interface accessible through hamburger menu displaying copyright 2025 information and contact details for Gene Townsend at genetownend@gmail.com, styled consistently with the rest of the application
+- Cycle Balance interface accessible through hamburger menu displaying current canister cycle balance in a user-friendly format with explanatory text and refresh capability
+- Export/Import Data interface accessible through hamburger menu with:
+  - Export section with download button and clear instructions
+  - Import section with comprehensive file upload interface including:
+    - Drag-and-drop file upload area with visual feedback
+    - File selection button as alternative to drag-and-drop
+    - File format validation with immediate feedback for invalid files
+    - Progress indicator during file upload and processing
+    - Enhanced date/time parsing logic in the import function that correctly recognizes both numeric timestamps and ISO 8601 date/time strings for pickupDate and pickupTime fields
+    - Automatic validation and conversion of ISO 8601 date/time strings to timestamps when needed during import processing
+    - Detailed data preview modal showing:
+      - Number of pickup records to be imported
+      - Number of customer records to be imported
+      - Date range of pickup data with properly formatted dates and times instead of "Invalid Date"
+      - Sample pickup and customer records for verification with consistent date/time formatting matching the app's display format
+    - Clear warning messages about data replacement with prominent styling
+    - Confirmation dialog with "Import Data" and "Cancel" buttons
+    - Loading indicators during import processing
+    - Success messaging with import summary (number of records imported)
+    - Post-import verification that all daily totals, running calculations, and payment method breakdowns exactly match the pre-export state
+    - Comprehensive error handling with specific error messages for different failure types
+    - Automatic application state refresh after successful import to show newly imported data with verified accuracy
+  - File format validation and user-friendly error messages
+- Redesigned pickup data entry screen with enhanced visual appeal
+- Pickup date field (required) with calendar date picker functionality, defaulting to today's date, affecting only new entries, clearly marked as mandatory
+- Street Address field (required) with auto-population capabilities
+- City field (optional) with auto-population capabilities
+- Phone number input field (optional) with auto-population capabilities
+- Pickup time field (required) with manual input capability and smart default timing - must correctly capture the user-entered time value and submit it to the backend, clearly marked as mandatory
+- The pickup time input field must properly bind to form state and submit the exact value entered by the user
+- Form validation that prevents submission when pickup date or pickup time is missing
+- Clear error messages displayed when required fields are not completed
+- Visual indicators (such as red asterisks) to mark required fields
+- Meter total and tip number input fields (optional) with calculated total display
+- Payment method dropdown field (optional) positioned after meter total input with options: "Cash", "Credit", "Voucher"
+- Tip payment method dropdown field (optional) positioned after tip input with options: "Cash", "Credit", "Voucher", defaulting to the selected meter payment method
+- Auto-population feedback for street address, city, and phone number matching
+- Improved layout spacing and typography for better readability
+- Quick access to pickup recording form with intuitive design
+- Easy-to-read pickup log view that dynamically updates based on the selected pickup date, including pickup date, pickup time (displayed exactly as it was entered by the user), phone number, street address, city, meter total, payment method, tip, tip payment method, and calculated total display
+- The pickup time must be correctly displayed in the pickup list exactly as it was entered by the user when the record was created
+- Existing pickup records maintain their original pickup date regardless of date picker changes
+- Running totals section beneath the pickup list that automatically updates when the pickup date is changed, showing totals for the selected date with payment method breakdowns, grand totals, and Owed Driver calculation using the formula ((meter credit + meter voucher) - meter cash) / 2 + credit tips + voucher tips, clearly labeled and visually distinct
+- Daily totals must be calculated using the exact same pickup records that are displayed in the pickup list above
+- Frontend must implement proper data refresh mechanisms to ensure that when users switch accounts, all displayed data (pickups, totals, customer information) is immediately updated to reflect the currently active user context
+- Frontend must clear all cached data and reload fresh data from the backend when user authentication changes
+- Frontend must implement complete session state cleanup when logout operations are performed
+- Frontend must implement automatic application state refresh after successful data import to immediately reflect newly imported pickup and customer data including:
+  - Refreshed pickup list display
+  - Updated customer database for auto-population functionality
+  - Recalculated daily totals and running calculations that exactly match pre-export values
+  - Cleared cached data to ensure consistency across all application components
+  - Verification that "Owed Driver" calculations and all payment method breakdowns are identical to pre-export state
+- Edit/Delete Record interface with date picker and record list display
+- Record selection interface showing key identifying information for each pickup
+- Edit form pre-populated with existing record data and allowing modification of all fields
+- Edit dialog with a fixed layout structure consisting of a scrollable content area for form fields and a fixed footer containing action buttons
+- The form content area must scroll independently when form fields exceed available space, ensuring all form fields remain accessible
+- "Save" and "Cancel" buttons must be positioned in a fixed footer at the bottom of the edit dialog that remains permanently visible
+- The fixed footer with action buttons must never scroll out of view or become hidden, regardless of form content length or screen size constraints
+- "Save" and "Cancel" buttons are larger in size with clear, helpful icons and messaging for better user experience
+- "Save" button displays with a save icon and helpful text like "Save Changes"
+- "Cancel" button displays with a cancel/close icon and helpful text like "Cancel Changes"
+- Both buttons are prominently positioned and easily accessible with appropriate styling
+- "Save" button functionality to submit changes with appropriate confirmation or error messaging
+- Frontend edit form submission logic triggers full synchronization update in the backend to ensure customer pickup history consistency
+- "Cancel" button functionality to discard changes and close the edit form without saving
+- Delete confirmation dialog showing record details and requiring user confirmation
+- Daily Report modal or page with from/to date picker controls
+- Comprehensive report display with daily totals, payment method breakdowns, and daily Owed Driver calculations using the accurate formula for selected date ranges
+- Daily detail section in reports displays unique records only, sorted chronologically by pickup time from earliest to latest within the selected date range, showing street address and city separately
+- Frontend must ensure that daily report calculations use the exact same data and logic as the daily totals displayed in the main view
+- Frontend must implement strict record grouping by date with comprehensive deduplication to guarantee that each pickup record appears only once per day in the daily report
+- Frontend must implement consistent data processing to guarantee that all records shown in the daily report are unique within each day, with no missing or duplicate entries
+- Report displays must show accurate pickup times for each record exactly as they were originally entered by the user
+- Frontend implements comprehensive validation and testing to ensure daily report totals are mathematically accurate and match the underlying unique pickup records for any selected date range
+- Daily report summary uses accurate Owed Driver calculation: ((total meter credit + total meter voucher) - total meter cash) / 2 + total credit tips + total voucher tips across the entire selected date range based on unique records only
+- Frontend must implement rigorous validation logic to prevent any mismatch errors between calculated totals and actual pickup records in production
+- Frontend must ensure accurate multi-day aggregation with proper summation of all payment method totals and correct Owed Driver calculations across the selected date range using only unique records
+- PDF Report Generation interface accessible through hamburger menu
+- PDF generation functionality that creates comprehensive specification documents
+- PDF download capability for generated specification documents
+- Confirmation dialog for "Delete All Records" with clear warning message and confirm/cancel buttons
+- Responsive design for various screen sizes
+- Taxi-themed visual elements to reinforce the app's purpose
+- English language content throughout the application
+- Authentication-protected routes and components
+- Frontend must implement proper session management to ensure that when users log out and log back in with different accounts, all application state is reset and refreshed with the appropriate user's data
+- Frontend must implement complete session cleanup functionality that clears all cached data, authentication tokens, and application state when logout operations are performed
+
+## Deployment
+- Application is deployed to production environment for live use
+- Ready for real taxi drivers to use in their daily operations
+- Stable and permanent deployment suitable for production workloads
+- Current version pushed to live production environment for permanent availability
+- Application is live and accessible to real users
+- Secure authentication system integrated for user privacy and data protection
+- Complete session cleanup and state management functionality deployed to ensure secure user switching
+- All calculation logic thoroughly tested and validated for production accuracy
+- Multi-day report calculations validated and tested to ensure accurate totals and Owed Driver calculations in production with no duplicate records
+- PDF generation functionality deployed and ready for production use
+- Cycle balance monitoring functionality deployed and ready for production use
+- About page functionality deployed and ready for production use
+- Export/Import data functionality deployed and ready for production use with secure file handling, comprehensive validation, enhanced date/time parsing logic for both numeric timestamps and ISO 8601 strings, automatic application state refresh, and verified data consistency after import operations
+- Profile management functionality deployed and ready for production use with reliable save/update operations and optional email validation
+- Latest version with all recent features and fixes deployed to production for immediate availability to all users
+- All application content displayed in English language throughout the user interface
+- User session management and data refresh functionality deployed to ensure proper handling of account switching scenarios
+- Clean production deployment with standard driver authentication and user flows only
+- Backend data synchronization logic deployed to ensure pickup records and customer pickup history arrays maintain perfect consistency for all update and delete operations
+- Export/Import functionality deployed with comprehensive data integrity validation to ensure that all pickup totals and payment method calculations remain consistent after export, delete, and restore operations
+- Fixed backend logic for exportData and importData functions deployed to ensure that after export, delete, and restore cycles, all totals including Owed Driver calculations, meter totals, and payment method breakdowns remain accurate and consistent with the original data
+- Backend deduplication logic deployed to prevent duplicate pickup entries during import operations
+- Backend synchronization logic deployed to ensure all linked data between pickups and customers remains synchronized after import, preventing mismatches between customer histories and pickup records
