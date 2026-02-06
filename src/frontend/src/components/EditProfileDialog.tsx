@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, UserCircle, Phone, Mail } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetProfile, useUpdateProfile } from '../hooks/useQueries';
+import { useActorReady } from '../hooks/useActorReady';
 
 interface EditProfileDialogProps {
     open: boolean;
@@ -24,9 +24,10 @@ export default function EditProfileDialog({ open, onOpenChange }: EditProfileDia
     const [contactInfo, setContactInfo] = useState('');
     const [email, setEmail] = useState('');
     const [emailError, setEmailError] = useState('');
-    
-    const { data: profile, isLoading: isLoadingProfile } = useGetProfile();
+
+    const { data: profile } = useGetProfile();
     const updateProfileMutation = useUpdateProfile();
+    const { isReady } = useActorReady();
 
     useEffect(() => {
         if (profile) {
@@ -85,121 +86,102 @@ export default function EditProfileDialog({ open, onOpenChange }: EditProfileDia
         }
     };
 
-    const handleCancel = () => {
-        if (profile) {
-            setDriverName(profile.driverName);
-            setContactInfo(profile.contactInfo);
-            setEmail(profile.email || '');
-            setEmailError('');
-        }
-        onOpenChange(false);
-    };
+    const isFormDisabled = updateProfileMutation.isPending || !isReady;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">Edit Profile</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                        <img 
+                            src="/assets/generated/profile-icon-transparent.dim_32x32.png" 
+                            alt="Profile" 
+                            className="h-6 w-6"
+                        />
+                        Edit Profile
+                    </DialogTitle>
                     <DialogDescription>
                         Update your driver profile information
                     </DialogDescription>
                 </DialogHeader>
 
-                {isLoadingProfile ? (
-                    <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-driverName">
+                            Driver Name <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="edit-driverName"
+                            placeholder="Enter your full name"
+                            value={driverName}
+                            onChange={(e) => setDriverName(e.target.value)}
+                            disabled={isFormDisabled}
+                        />
                     </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-driverName" className="text-sm font-medium">
-                                Driver Name <span className="text-destructive">*</span>
-                            </Label>
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                    <UserCircle className="w-4 h-4 text-primary" />
-                                </div>
-                                <Input
-                                    id="edit-driverName"
-                                    placeholder="Enter your full name"
-                                    value={driverName}
-                                    onChange={(e) => setDriverName(e.target.value)}
-                                    disabled={updateProfileMutation.isPending}
-                                    className="h-10 border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                />
-                            </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-contactInfo" className="text-sm font-medium">
-                                Contact Information <span className="text-destructive">*</span>
-                            </Label>
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                    <Phone className="w-4 h-4 text-primary" />
-                                </div>
-                                <Input
-                                    id="edit-contactInfo"
-                                    type="tel"
-                                    placeholder="Enter your phone number"
-                                    value={contactInfo}
-                                    onChange={(e) => setContactInfo(e.target.value)}
-                                    disabled={updateProfileMutation.isPending}
-                                    className="h-10 border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                />
-                            </div>
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-contactInfo">
+                            Contact Information <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="edit-contactInfo"
+                            type="tel"
+                            placeholder="Enter your phone number"
+                            value={contactInfo}
+                            onChange={(e) => setContactInfo(e.target.value)}
+                            disabled={isFormDisabled}
+                        />
+                    </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-email" className="text-sm font-medium">
-                                Email Address <span className="text-muted-foreground text-xs">(optional)</span>
-                            </Label>
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                    <Mail className="w-4 h-4 text-primary" />
-                                </div>
-                                <Input
-                                    id="edit-email"
-                                    type="email"
-                                    placeholder="Enter your email address"
-                                    value={email}
-                                    onChange={handleEmailChange}
-                                    disabled={updateProfileMutation.isPending}
-                                    className={`h-10 border-2 focus-visible:ring-2 focus-visible:ring-primary/20 ${
-                                        emailError ? 'border-destructive' : ''
-                                    }`}
-                                />
-                            </div>
-                            {emailError && (
-                                <p className="text-sm text-destructive">{emailError}</p>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-email">
+                            Email Address <span className="text-muted-foreground text-xs">(optional)</span>
+                        </Label>
+                        <Input
+                            id="edit-email"
+                            type="email"
+                            placeholder="Enter your email address"
+                            value={email}
+                            onChange={handleEmailChange}
+                            disabled={isFormDisabled}
+                            className={emailError ? 'border-destructive' : ''}
+                        />
+                        {emailError && (
+                            <p className="text-sm text-destructive">{emailError}</p>
+                        )}
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            disabled={isFormDisabled}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={isFormDisabled || !!emailError}
+                            className="flex-1"
+                        >
+                            {updateProfileMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : !isReady ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Connecting...
+                                </>
+                            ) : (
+                                'Save Changes'
                             )}
-                        </div>
-
-                        <DialogFooter className="gap-2 sm:gap-0">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleCancel}
-                                disabled={updateProfileMutation.isPending}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={updateProfileMutation.isPending || !!emailError}
-                            >
-                                {updateProfileMutation.isPending ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    'Save Changes'
-                                )}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                )}
+                        </Button>
+                    </div>
+                </form>
             </DialogContent>
         </Dialog>
     );

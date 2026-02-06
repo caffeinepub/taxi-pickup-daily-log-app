@@ -1,31 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
+import { useActorReady } from './useActorReady';
 import { useInternetIdentity } from './useInternetIdentity';
 import type { Pickup, Customer, UserProfile, PaymentMethod, DailyReport, ExportData } from '../backend';
 
+const ACTOR_NOT_READY_MESSAGE = 'Connecting to backend—please try again in a moment.';
+
 export function useGetProfile() {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     
     const principal = identity?.getPrincipal().toString();
-    
-    const shouldFetch = !!actor && !isFetching && !!identity;
 
     return useQuery<UserProfile | null>({
         queryKey: ['profile', principal],
         queryFn: async () => {
-            if (!actor) return null;
+            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
             if (identity) {
                 return actor.getCallerUserProfile();
             }
             return null;
         },
-        enabled: shouldFetch,
+        enabled: isReady && !!identity,
     });
 }
 
 export function useSetupProfile() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
@@ -40,7 +43,7 @@ export function useSetupProfile() {
             contactInfo: string;
             email?: string;
         }) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             
             const profile: UserProfile = {
                 driverName,
@@ -61,6 +64,7 @@ export function useSetupProfile() {
 
 export function useUpdateProfile() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
@@ -75,7 +79,7 @@ export function useUpdateProfile() {
             contactInfo: string;
             email?: string;
         }) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             
             const profile: UserProfile = {
                 driverName,
@@ -95,7 +99,8 @@ export function useUpdateProfile() {
 }
 
 export function useGetPickupsForDate(fromDate: bigint, toDate: bigint) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -105,12 +110,13 @@ export function useGetPickupsForDate(fromDate: bigint, toDate: bigint) {
             if (!actor) return [];
             return actor.getPickupsInRange(fromDate, toDate);
         },
-        enabled: !!actor && !isFetching && !!principal,
+        enabled: isReady && !!principal,
     });
 }
 
 export function useGetCustomerSuggestions(partialInput: string) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -120,12 +126,13 @@ export function useGetCustomerSuggestions(partialInput: string) {
             if (!actor || !partialInput.trim()) return [];
             return actor.getCustomerSuggestions(partialInput.trim());
         },
-        enabled: !!actor && !isFetching && !!principal && partialInput.trim().length > 0,
+        enabled: isReady && !!principal && partialInput.trim().length > 0,
     });
 }
 
 export function useFindCustomerByAddress(streetAddress: string, city: string) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -135,12 +142,13 @@ export function useFindCustomerByAddress(streetAddress: string, city: string) {
             if (!actor || !streetAddress.trim()) return null;
             return actor.findCustomerByAddress(streetAddress.trim(), city.trim());
         },
-        enabled: !!actor && !isFetching && !!principal && streetAddress.trim().length > 0,
+        enabled: isReady && !!principal && streetAddress.trim().length > 0,
     });
 }
 
 export function useFindCustomerByPhoneNumber(phoneNumber: string) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -150,12 +158,13 @@ export function useFindCustomerByPhoneNumber(phoneNumber: string) {
             if (!actor || !phoneNumber.trim()) return null;
             return actor.findCustomerByPhoneNumber(phoneNumber.trim());
         },
-        enabled: !!actor && !isFetching && !!principal && phoneNumber.trim().length > 0,
+        enabled: isReady && !!principal && phoneNumber.trim().length > 0,
     });
 }
 
 export function useRecordPickup() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
@@ -186,7 +195,7 @@ export function useRecordPickup() {
             tip: number;
             tipPaymentMethod: PaymentMethod;
         }) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.recordPickup(
                 pickupDate,
                 streetAddress,
@@ -213,6 +222,7 @@ export function useRecordPickup() {
 
 export function useUpdatePickup() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
@@ -245,7 +255,7 @@ export function useUpdatePickup() {
             tip: number;
             tipPaymentMethod: PaymentMethod;
         }) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.updatePickup(
                 pickupId,
                 pickupDate,
@@ -273,13 +283,14 @@ export function useUpdatePickup() {
 
 export function useDeletePickup() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
 
     return useMutation({
         mutationFn: async (pickupId: bigint) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.deletePickup(pickupId);
         },
         onSuccess: () => {
@@ -293,7 +304,8 @@ export function useDeletePickup() {
 }
 
 export function useGetDailyReport(fromDate?: bigint, toDate?: bigint, enabled: boolean = false) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -319,19 +331,20 @@ export function useGetDailyReport(fromDate?: bigint, toDate?: bigint, enabled: b
             }
             return actor.getDailyReport(fromDate, toDate);
         },
-        enabled: !!actor && !isFetching && !!principal && !!fromDate && !!toDate && enabled,
+        enabled: isReady && !!principal && !!fromDate && !!toDate && enabled,
     });
 }
 
 export function useDeleteAllRecords() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
 
     return useMutation({
         mutationFn: async () => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.deleteAllRecords();
         },
         onSuccess: () => {
@@ -345,7 +358,8 @@ export function useDeleteAllRecords() {
 }
 
 export function useGetCycleBalance(refreshKey: number = 0) {
-    const { actor, isFetching } = useActor();
+    const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const principal = identity?.getPrincipal().toString();
 
@@ -355,16 +369,17 @@ export function useGetCycleBalance(refreshKey: number = 0) {
             if (!actor) return BigInt(0);
             return actor.getCycleBalance();
         },
-        enabled: !!actor && !isFetching && !!principal,
+        enabled: isReady && !!principal,
     });
 }
 
 export function useExportData() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
 
     return useMutation({
         mutationFn: async () => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.exportData();
         },
     });
@@ -372,13 +387,14 @@ export function useExportData() {
 
 export function useImportData() {
     const { actor } = useActor();
+    const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
     const principal = identity?.getPrincipal().toString();
 
     return useMutation({
         mutationFn: async (data: ExportData) => {
-            if (!actor) throw new Error('Actor not initialized');
+            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.importData(data);
         },
         onSuccess: () => {

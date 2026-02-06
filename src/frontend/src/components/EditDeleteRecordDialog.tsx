@@ -1,21 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CalendarIcon, Edit, Trash2, Clock, MapPin } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, CalendarIcon, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { useGetPickupsForDate, useUpdatePickup, useDeletePickup } from '../hooks/useQueries';
-import { PaymentMethod, type Pickup } from '../backend';
-import CustomerLookup from './CustomerLookup';
+import { useActorReady } from '../hooks/useActorReady';
+import type { Pickup, PaymentMethod } from '../backend';
 
 interface EditDeleteRecordDialogProps {
     open: boolean;
@@ -26,631 +31,469 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedPickup, setSelectedPickup] = useState<Pickup | null>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // Form state for editing
-    const [editPickupDate, setEditPickupDate] = useState<Date>(new Date());
-    const [editStreetAddress, setEditStreetAddress] = useState('');
-    const [editCity, setEditCity] = useState('');
-    const [editCustomerName, setEditCustomerName] = useState('');
-    const [editPhoneNumber, setEditPhoneNumber] = useState('');
-    const [editPickupTime, setEditPickupTime] = useState('');
-    const [editDestinationAddress, setEditDestinationAddress] = useState('');
-    const [editMeterTotal, setEditMeterTotal] = useState('');
-    const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>(PaymentMethod.cash);
-    const [editTip, setEditTip] = useState('');
-    const [editTipPaymentMethod, setEditTipPaymentMethod] = useState<PaymentMethod>(PaymentMethod.cash);
+    // Form state
+    const [pickupDate, setPickupDate] = useState<Date>(new Date());
+    const [streetAddress, setStreetAddress] = useState('');
+    const [city, setCity] = useState('');
+    const [customerName, setCustomerName] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [pickupTime, setPickupTime] = useState('');
+    const [destinationAddress, setDestinationAddress] = useState('');
+    const [meterTotal, setMeterTotal] = useState('');
+    const [meterPaymentMethod, setMeterPaymentMethod] = useState<PaymentMethod>('cash' as PaymentMethod);
+    const [tip, setTip] = useState('');
+    const [tipPaymentMethod, setTipPaymentMethod] = useState<PaymentMethod>('cash' as PaymentMethod);
 
-    // Convert date to timestamp range for query
     const startOfDay = new Date(selectedDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(selectedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const fromDate = BigInt(startOfDay.getTime()) * BigInt(1000000);
-    const toDate = BigInt(endOfDay.getTime()) * BigInt(1000000);
+    const { data: pickups = [], isLoading } = useGetPickupsForDate(
+        BigInt(startOfDay.getTime()) * BigInt(1000000),
+        BigInt(endOfDay.getTime()) * BigInt(1000000)
+    );
 
-    const { data: pickups = [], isLoading } = useGetPickupsForDate(fromDate, toDate);
     const updatePickupMutation = useUpdatePickup();
     const deletePickupMutation = useDeletePickup();
+    const { isReady } = useActorReady();
 
-    // Reset state when dialog closes
     useEffect(() => {
-        if (!open) {
-            setSelectedPickup(null);
-            setIsEditing(false);
-            setShowDeleteConfirm(false);
+        if (selectedPickup) {
+            const pickupDateObj = new Date(Number(selectedPickup.pickupDate));
+            setPickupDate(pickupDateObj);
+            setStreetAddress(selectedPickup.streetAddress);
+            setCity(selectedPickup.city);
+            setCustomerName(selectedPickup.customerName);
+            setPhoneNumber(selectedPickup.phoneNumber);
+
+            const pickupTimeObj = new Date(Number(selectedPickup.pickupTime));
+            const hours = String(pickupTimeObj.getHours()).padStart(2, '0');
+            const minutes = String(pickupTimeObj.getMinutes()).padStart(2, '0');
+            setPickupTime(`${hours}:${minutes}`);
+
+            setDestinationAddress(selectedPickup.destinationAddress);
+            setMeterTotal(selectedPickup.meterTotal.toString());
+            setMeterPaymentMethod(selectedPickup.meterPaymentMethod);
+            setTip(selectedPickup.tip.toString());
+            setTipPaymentMethod(selectedPickup.tipPaymentMethod);
         }
-    }, [open]);
-
-    // Populate edit form when a pickup is selected for editing
-    useEffect(() => {
-        if (selectedPickup && isEditing) {
-            // Convert pickup date timestamp to Date
-            const pickupDateMs = Number(selectedPickup.pickupDate / BigInt(1000000));
-            setEditPickupDate(new Date(pickupDateMs));
-
-            setEditStreetAddress(selectedPickup.streetAddress);
-            setEditCity(selectedPickup.city);
-            setEditCustomerName(selectedPickup.customerName);
-            setEditPhoneNumber(selectedPickup.phoneNumber);
-
-            // Convert pickup time timestamp to HH:MM format
-            const pickupTimeMs = Number(selectedPickup.pickupTime / BigInt(1000000));
-            const pickupTimeDate = new Date(pickupTimeMs);
-            const hours = String(pickupTimeDate.getHours()).padStart(2, '0');
-            const minutes = String(pickupTimeDate.getMinutes()).padStart(2, '0');
-            setEditPickupTime(`${hours}:${minutes}`);
-
-            setEditDestinationAddress(selectedPickup.destinationAddress);
-            setEditMeterTotal(selectedPickup.meterTotal.toString());
-            setEditPaymentMethod(selectedPickup.meterPaymentMethod);
-            setEditTip(selectedPickup.tip.toString());
-            setEditTipPaymentMethod(selectedPickup.tipPaymentMethod);
-        }
-    }, [selectedPickup, isEditing]);
+    }, [selectedPickup]);
 
     const handleSelectPickup = (pickup: Pickup) => {
         setSelectedPickup(pickup);
-    };
-
-    const handleEdit = () => {
-        if (!selectedPickup) return;
         setIsEditing(true);
     };
 
-    const handleDelete = () => {
-        if (!selectedPickup) return;
-        setShowDeleteConfirm(true);
-    };
-
-    const handleConfirmDelete = async () => {
+    const handleSave = async () => {
         if (!selectedPickup) return;
 
         try {
-            await deletePickupMutation.mutateAsync(selectedPickup.id);
-            toast.success('Pickup record deleted successfully');
-            setShowDeleteConfirm(false);
-            setSelectedPickup(null);
-        } catch (error) {
-            toast.error('Failed to delete pickup record');
-            console.error('Error deleting pickup:', error);
-        }
-    };
-
-    const handleSaveEdit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!selectedPickup) return;
-
-        // Validate required fields
-        if (!editStreetAddress.trim() || !editDestinationAddress.trim()) {
-            toast.error('Street Address and Destination Address are required');
-            return;
-        }
-
-        if (!editPickupTime.trim()) {
-            toast.error('Pickup time is required');
-            return;
-        }
-
-        const meterTotalValue = parseFloat(editMeterTotal) || 0;
-        const tipValue = parseFloat(editTip) || 0;
-
-        if (meterTotalValue < 0 || tipValue < 0) {
-            toast.error('Meter total and tip must be positive numbers');
-            return;
-        }
-
-        try {
-            // Convert edit pickup date to timestamp
-            const pickupDateCopy = new Date(editPickupDate);
+            const pickupDateCopy = new Date(pickupDate);
             pickupDateCopy.setHours(0, 0, 0, 0);
             const pickupDateTimestamp = BigInt(pickupDateCopy.getTime()) * BigInt(1000000);
 
-            // Convert pickup time to timestamp
-            const [hours, minutes] = editPickupTime.split(':').map(Number);
-            const pickupDateTime = new Date(editPickupDate);
+            const [hours, minutes] = pickupTime.split(':').map(Number);
+            const pickupDateTime = new Date(pickupDate);
             pickupDateTime.setHours(hours, minutes, 0, 0);
             const pickupTimeTimestamp = BigInt(pickupDateTime.getTime()) * BigInt(1000000);
 
             await updatePickupMutation.mutateAsync({
                 pickupId: selectedPickup.id,
                 pickupDate: pickupDateTimestamp,
-                streetAddress: editStreetAddress.trim(),
-                city: editCity.trim(),
-                customerName: editCustomerName.trim(),
-                phoneNumber: editPhoneNumber.trim(),
+                streetAddress: streetAddress.trim(),
+                city: city.trim(),
+                customerName: customerName.trim(),
+                phoneNumber: phoneNumber.trim(),
                 pickupTime: pickupTimeTimestamp,
-                destinationAddress: editDestinationAddress.trim(),
-                meterTotal: meterTotalValue,
-                meterPaymentMethod: editPaymentMethod,
-                tip: tipValue,
-                tipPaymentMethod: editTipPaymentMethod,
+                destinationAddress: destinationAddress.trim(),
+                meterTotal: parseFloat(meterTotal) || 0,
+                meterPaymentMethod,
+                tip: parseFloat(tip) || 0,
+                tipPaymentMethod,
             });
 
-            toast.success('Pickup record updated successfully');
+            toast.success('Pickup updated successfully');
             setIsEditing(false);
             setSelectedPickup(null);
         } catch (error) {
-            toast.error('Failed to update pickup record');
+            toast.error('Failed to update pickup');
             console.error('Error updating pickup:', error);
         }
     };
 
-    const handleCancelEdit = () => {
-        setIsEditing(false);
+    const handleDelete = async () => {
+        if (!selectedPickup) return;
+
+        try {
+            await deletePickupMutation.mutateAsync(selectedPickup.id);
+            toast.success('Pickup deleted successfully');
+            setIsEditing(false);
+            setSelectedPickup(null);
+        } catch (error) {
+            toast.error('Failed to delete pickup');
+            console.error('Error deleting pickup:', error);
+        }
     };
 
-    const handleBackToList = () => {
+    const handleCancel = () => {
+        setIsEditing(false);
         setSelectedPickup(null);
-        setIsEditing(false);
     };
 
-    const editCalculatedTotal = (parseFloat(editMeterTotal) || 0) + (parseFloat(editTip) || 0);
+    const formatTime = (timestamp: bigint): string => {
+        const date = new Date(Number(timestamp));
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    };
 
-    // Sort pickups by time
-    const sortedPickups = [...pickups].sort((a, b) => {
-        const timeA = Number(a.pickupTime);
-        const timeB = Number(b.pickupTime);
-        return timeA - timeB;
-    });
+    const calculatedTotal = (parseFloat(meterTotal) || 0) + (parseFloat(tip) || 0);
+    const isFormDisabled = updatePickupMutation.isPending || deletePickupMutation.isPending || !isReady;
 
     return (
-        <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                    <div className="px-6 pt-6 pb-4 flex-shrink-0">
-                        <DialogHeader>
-                            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                                <Edit className="h-6 w-6 text-primary" />
-                                Edit/Delete Record
-                            </DialogTitle>
-                            <DialogDescription>
-                                {isEditing
-                                    ? 'Edit the pickup record details below'
-                                    : selectedPickup
-                                    ? 'Choose an action for the selected record'
-                                    : 'Select a date and choose a pickup record to edit or delete'}
-                            </DialogDescription>
-                        </DialogHeader>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <img 
+                            src="/assets/generated/edit-icon-transparent.dim_32x32.png" 
+                            alt="Edit" 
+                            className="h-6 w-6"
+                        />
+                        Edit/Delete Record
+                    </DialogTitle>
+                    <DialogDescription>
+                        Select a date to view pickups, then choose a record to edit or delete.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex-1 overflow-hidden flex flex-col gap-4">
+                    {/* Date Selector */}
+                    <div className="space-y-2">
+                        <Label>Select Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        'w-full justify-start text-left font-normal',
+                                        !selectedDate && 'text-muted-foreground'
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    onSelect={(date) => {
+                                        if (date) {
+                                            setSelectedDate(date);
+                                            setIsEditing(false);
+                                            setSelectedPickup(null);
+                                        }
+                                    }}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6">
-                        <div className="pb-4">
-                            {!selectedPickup && !isEditing && (
-                                <div className="space-y-6">
-                                    {/* Date Picker */}
-                                    <div className="space-y-3">
-                                        <Label htmlFor="recordDate" className="text-base font-semibold">
-                                            Select Date
-                                        </Label>
+                    {!isEditing ? (
+                        /* Pickup List */
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                            <Label className="mb-2">Pickups on {format(selectedDate, 'PPP')}</Label>
+                            {isLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : pickups.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    No pickups found for this date
+                                </div>
+                            ) : (
+                                <ScrollArea className="flex-1 border rounded-md">
+                                    <div className="p-4 space-y-2">
+                                        {pickups.map((pickup) => (
+                                            <Button
+                                                key={pickup.id.toString()}
+                                                variant="outline"
+                                                className="w-full justify-start text-left h-auto py-3"
+                                                onClick={() => handleSelectPickup(pickup)}
+                                                disabled={isFormDisabled}
+                                            >
+                                                <div className="flex flex-col gap-1 w-full">
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="font-semibold">
+                                                            {pickup.streetAddress}
+                                                            {pickup.city && `, ${pickup.city}`}
+                                                        </span>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {formatTime(pickup.pickupTime)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {pickup.customerName || 'No customer name'} → {pickup.destinationAddress}
+                                                    </div>
+                                                    <div className="text-sm font-medium">
+                                                        Total: ${pickup.calculatedTotal.toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            )}
+                        </div>
+                    ) : (
+                        /* Edit Form */
+                        <div className="flex-1 overflow-y-auto">
+                            <ScrollArea className="h-full pr-4">
+                                <div className="space-y-4">
+                                    {/* Pickup Date */}
+                                    <div className="space-y-2">
+                                        <Label>Pickup Date</Label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
-                                                    id="recordDate"
                                                     variant="outline"
                                                     className={cn(
-                                                        'w-full h-11 justify-start text-left font-normal border-2',
-                                                        !selectedDate && 'text-muted-foreground'
+                                                        'w-full justify-start text-left font-normal',
+                                                        !pickupDate && 'text-muted-foreground'
                                                     )}
+                                                    disabled={isFormDisabled}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
+                                                    {pickupDate ? format(pickupDate, 'PPP') : <span>Pick a date</span>}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent className="w-auto p-0">
                                                 <Calendar
                                                     mode="single"
-                                                    selected={selectedDate}
-                                                    onSelect={(date) => date && setSelectedDate(date)}
+                                                    selected={pickupDate}
+                                                    onSelect={(date) => date && setPickupDate(date)}
                                                     initialFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>
                                     </div>
 
-                                    <Separator />
-
-                                    {/* Pickup List */}
-                                    <div className="space-y-3">
-                                        <Label className="text-base font-semibold">
-                                            Pickup Records ({sortedPickups.length})
-                                        </Label>
-                                        {isLoading ? (
-                                            <div className="flex items-center justify-center py-8">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            </div>
-                                        ) : sortedPickups.length === 0 ? (
-                                            <div className="text-center py-8 text-muted-foreground">
-                                                No pickup records found for this date
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {sortedPickups.map((pickup) => {
-                                                    const pickupTimeMs = Number(pickup.pickupTime / BigInt(1000000));
-                                                    const pickupTimeDate = new Date(pickupTimeMs);
-                                                    const timeStr = format(pickupTimeDate, 'h:mm a');
-
-                                                    return (
-                                                        <Button
-                                                            key={pickup.id.toString()}
-                                                            variant="outline"
-                                                            className="w-full h-auto py-3 px-4 justify-start text-left hover:bg-accent"
-                                                            onClick={() => handleSelectPickup(pickup)}
-                                                        >
-                                                            <div className="flex flex-col gap-1 w-full">
-                                                                <div className="flex items-center gap-2 font-semibold">
-                                                                    <Clock className="h-4 w-4 text-primary" />
-                                                                    {timeStr}
-                                                                </div>
-                                                                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                                                                    <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                                                                    <span className="line-clamp-1">
-                                                                        {pickup.streetAddress}
-                                                                        {pickup.city && `, ${pickup.city}`}
-                                                                    </span>
-                                                                </div>
-                                                                {pickup.customerName && (
-                                                                    <div className="text-sm text-muted-foreground">
-                                                                        Customer: {pickup.customerName}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </Button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedPickup && !isEditing && (
-                                <div className="space-y-6">
-                                    {/* Selected Record Details */}
-                                    <div className="space-y-3">
-                                        <Label className="text-base font-semibold">Selected Record</Label>
-                                        <div className="border-2 rounded-lg p-4 space-y-2 bg-accent/50">
-                                            <div className="flex items-center gap-2 font-semibold">
-                                                <Clock className="h-4 w-4 text-primary" />
-                                                {format(new Date(Number(selectedPickup.pickupTime / BigInt(1000000))), 'h:mm a')}
-                                            </div>
-                                            <div className="flex items-start gap-2 text-sm">
-                                                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                                                <span>
-                                                    {selectedPickup.streetAddress}
-                                                    {selectedPickup.city && `, ${selectedPickup.city}`}
-                                                </span>
-                                            </div>
-                                            {selectedPickup.customerName && (
-                                                <div className="text-sm">Customer: {selectedPickup.customerName}</div>
-                                            )}
-                                            <div className="text-sm">Destination: {selectedPickup.destinationAddress}</div>
-                                            <div className="text-sm font-semibold">
-                                                Total: ${selectedPickup.calculatedTotal.toFixed(2)}
-                                            </div>
-                                        </div>
+                                    {/* Pickup Time */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-pickupTime">Pickup Time</Label>
+                                        <Input
+                                            id="edit-pickupTime"
+                                            type="time"
+                                            value={pickupTime}
+                                            onChange={(e) => setPickupTime(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
                                     </div>
 
                                     <Separator />
 
-                                    {/* Action Buttons */}
-                                    <div className="space-y-3">
-                                        <Label className="text-base font-semibold">Choose Action</Label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <Button
-                                                variant="default"
-                                                className="h-12"
-                                                onClick={handleEdit}
-                                            >
-                                                <Edit className="mr-2 h-4 w-4" />
-                                                Edit Record
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                className="h-12"
-                                                onClick={handleDelete}
-                                            >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete Record
-                                            </Button>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            onClick={handleBackToList}
+                                    {/* Street Address */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-streetAddress">Street Address</Label>
+                                        <Input
+                                            id="edit-streetAddress"
+                                            value={streetAddress}
+                                            onChange={(e) => setStreetAddress(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    {/* City */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-city">City</Label>
+                                        <Input
+                                            id="edit-city"
+                                            value={city}
+                                            onChange={(e) => setCity(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    {/* Customer Name */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-customerName">Customer Name</Label>
+                                        <Input
+                                            id="edit-customerName"
+                                            value={customerName}
+                                            onChange={(e) => setCustomerName(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    {/* Phone Number */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-phoneNumber">Phone Number</Label>
+                                        <Input
+                                            id="edit-phoneNumber"
+                                            type="tel"
+                                            value={phoneNumber}
+                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    {/* Destination Address */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-destinationAddress">Destination Address</Label>
+                                        <Input
+                                            id="edit-destinationAddress"
+                                            value={destinationAddress}
+                                            onChange={(e) => setDestinationAddress(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* Meter Total */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-meterTotal">Meter Total</Label>
+                                        <Input
+                                            id="edit-meterTotal"
+                                            type="number"
+                                            step="0.01"
+                                            value={meterTotal}
+                                            onChange={(e) => setMeterTotal(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
+
+                                    {/* Meter Payment Method */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-meterPaymentMethod">Meter Payment Method</Label>
+                                        <Select
+                                            value={meterPaymentMethod}
+                                            onValueChange={(value) => setMeterPaymentMethod(value as PaymentMethod)}
+                                            disabled={isFormDisabled}
                                         >
-                                            Back to List
-                                        </Button>
+                                            <SelectTrigger id="edit-meterPaymentMethod">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="cash">Cash</SelectItem>
+                                                <SelectItem value="credit">Credit</SelectItem>
+                                                <SelectItem value="voucher">Voucher</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                </div>
-                            )}
 
-                            {isEditing && selectedPickup && (
-                                <div className="space-y-6">
-                                    {/* Edit Form */}
-                                    <div className="space-y-4">
-                                        <Label className="text-base font-semibold">Edit Pickup Details</Label>
+                                    {/* Tip */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-tip">Tip</Label>
+                                        <Input
+                                            id="edit-tip"
+                                            type="number"
+                                            step="0.01"
+                                            value={tip}
+                                            onChange={(e) => setTip(e.target.value)}
+                                            disabled={isFormDisabled}
+                                        />
+                                    </div>
 
-                                        {/* Pickup Date */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editPickupDate">
-                                                Pickup Date <span className="text-destructive">*</span>
-                                            </Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        id="editPickupDate"
-                                                        variant="outline"
-                                                        className={cn(
-                                                            'w-full h-11 justify-start text-left font-normal border-2',
-                                                            !editPickupDate && 'text-muted-foreground'
-                                                        )}
-                                                        disabled={updatePickupMutation.isPending}
-                                                    >
-                                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                                        {editPickupDate ? format(editPickupDate, 'PPP') : <span>Pick a date</span>}
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={editPickupDate}
-                                                        onSelect={(date) => date && setEditPickupDate(date)}
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
+                                    {/* Tip Payment Method */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-tipPaymentMethod">Tip Payment Method</Label>
+                                        <Select
+                                            value={tipPaymentMethod}
+                                            onValueChange={(value) => setTipPaymentMethod(value as PaymentMethod)}
+                                            disabled={isFormDisabled}
+                                        >
+                                            <SelectTrigger id="edit-tipPaymentMethod">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="cash">Cash</SelectItem>
+                                                <SelectItem value="credit">Credit</SelectItem>
+                                                <SelectItem value="voucher">Voucher</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
-                                        {/* Street Address */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editStreetAddress">
-                                                Street Address <span className="text-destructive">*</span>
-                                            </Label>
-                                            <Input
-                                                id="editStreetAddress"
-                                                value={editStreetAddress}
-                                                onChange={(e) => setEditStreetAddress(e.target.value)}
-                                                disabled={updatePickupMutation.isPending}
-                                                className="h-11 border-2"
-                                                required
-                                            />
-                                        </div>
-
-                                        {/* City */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editCity">City</Label>
-                                            <Input
-                                                id="editCity"
-                                                value={editCity}
-                                                onChange={(e) => setEditCity(e.target.value)}
-                                                disabled={updatePickupMutation.isPending}
-                                                className="h-11 border-2"
-                                            />
-                                        </div>
-
-                                        {/* Customer Name */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editCustomerName">Customer Name</Label>
-                                            <CustomerLookup
-                                                value={editCustomerName}
-                                                onChange={setEditCustomerName}
-                                                disabled={updatePickupMutation.isPending}
-                                            />
-                                        </div>
-
-                                        {/* Phone Number */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editPhoneNumber">Phone Number</Label>
-                                            <Input
-                                                id="editPhoneNumber"
-                                                type="tel"
-                                                value={editPhoneNumber}
-                                                onChange={(e) => setEditPhoneNumber(e.target.value)}
-                                                disabled={updatePickupMutation.isPending}
-                                                className="h-11 border-2"
-                                            />
-                                        </div>
-
-                                        {/* Pickup Time */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editPickupTime">
-                                                Pickup Time <span className="text-destructive">*</span>
-                                            </Label>
-                                            <Input
-                                                id="editPickupTime"
-                                                type="time"
-                                                value={editPickupTime}
-                                                onChange={(e) => setEditPickupTime(e.target.value)}
-                                                disabled={updatePickupMutation.isPending}
-                                                className="h-11 border-2"
-                                                required
-                                            />
-                                        </div>
-
-                                        {/* Destination Address */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="editDestinationAddress">
-                                                Destination Address <span className="text-destructive">*</span>
-                                            </Label>
-                                            <Input
-                                                id="editDestinationAddress"
-                                                value={editDestinationAddress}
-                                                onChange={(e) => setEditDestinationAddress(e.target.value)}
-                                                disabled={updatePickupMutation.isPending}
-                                                className="h-11 border-2"
-                                                required
-                                            />
-                                        </div>
-
-                                        {/* Meter Total and Payment Method */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="editMeterTotal">Meter Total</Label>
-                                                <Input
-                                                    id="editMeterTotal"
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={editMeterTotal}
-                                                    onChange={(e) => setEditMeterTotal(e.target.value)}
-                                                    disabled={updatePickupMutation.isPending}
-                                                    className="h-11 border-2"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="editPaymentMethod">Payment Method</Label>
-                                                <Select
-                                                    value={editPaymentMethod}
-                                                    onValueChange={(value) => setEditPaymentMethod(value as PaymentMethod)}
-                                                    disabled={updatePickupMutation.isPending}
-                                                >
-                                                    <SelectTrigger id="editPaymentMethod" className="h-11 border-2">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
-                                                        <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
-                                                        <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        {/* Tip and Tip Payment Method */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="editTip">Tip</Label>
-                                                <Input
-                                                    id="editTip"
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={editTip}
-                                                    onChange={(e) => setEditTip(e.target.value)}
-                                                    disabled={updatePickupMutation.isPending}
-                                                    className="h-11 border-2"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="editTipPaymentMethod">Tip Payment Method</Label>
-                                                <Select
-                                                    value={editTipPaymentMethod}
-                                                    onValueChange={(value) => setEditTipPaymentMethod(value as PaymentMethod)}
-                                                    disabled={updatePickupMutation.isPending}
-                                                >
-                                                    <SelectTrigger id="editTipPaymentMethod" className="h-11 border-2">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
-                                                        <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
-                                                        <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        {/* Calculated Total */}
-                                        <div className="space-y-2">
-                                            <Label>Calculated Total</Label>
-                                            <div className="h-11 px-3 py-2 rounded-md border-2 border-muted bg-muted/50 flex items-center font-semibold">
-                                                ${editCalculatedTotal.toFixed(2)}
-                                            </div>
+                                    {/* Calculated Total */}
+                                    <div className="rounded-lg bg-muted/50 p-4 border">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold">Calculated Total:</span>
+                                            <span className="text-xl font-bold text-primary">
+                                                ${calculatedTotal.toFixed(2)}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Fixed Action Buttons at Bottom - Only shown when editing */}
-                    {isEditing && selectedPickup && (
-                        <div className="border-t px-6 py-4 flex-shrink-0 bg-background space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button
-                                    type="button"
-                                    size="lg"
-                                    className="h-14 font-semibold text-base shadow-md hover:shadow-lg transition-shadow"
-                                    disabled={updatePickupMutation.isPending}
-                                    onClick={handleSaveEdit}
-                                >
-                                    {updatePickupMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <img src="/assets/generated/save-icon.dim_32x32.png" alt="" className="mr-2 h-6 w-6" />
-                                            Save Changes
-                                        </>
-                                    )}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="lg"
-                                    className="h-14 font-semibold text-base border-2 shadow-md hover:shadow-lg transition-shadow"
-                                    onClick={handleCancelEdit}
-                                    disabled={updatePickupMutation.isPending}
-                                >
-                                    <img src="/assets/generated/cancel-icon.dim_32x32.png" alt="" className="mr-2 h-6 w-6" />
-                                    Cancel
-                                </Button>
-                            </div>
-                            <p className="text-sm text-center text-muted-foreground">
-                                Save your changes to update the pickup record, or cancel to discard all edits
-                            </p>
+                            </ScrollArea>
                         </div>
                     )}
-                </DialogContent>
-            </Dialog>
 
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Pickup Record?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the following pickup record:
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    {selectedPickup && (
-                        <div className="border rounded-lg p-3 space-y-1 bg-accent/50">
-                            <div className="font-semibold">
-                                {format(new Date(Number(selectedPickup.pickupTime / BigInt(1000000))), 'h:mm a')}
-                            </div>
-                            <div className="text-sm">
-                                {selectedPickup.streetAddress}
-                                {selectedPickup.city && `, ${selectedPickup.city}`}
-                            </div>
-                            {selectedPickup.customerName && (
-                                <div className="text-sm">Customer: {selectedPickup.customerName}</div>
-                            )}
+                    {/* Action Buttons - Always visible at bottom */}
+                    {isEditing && (
+                        <div className="flex gap-2 pt-4 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={handleCancel}
+                                disabled={isFormDisabled}
+                                className="flex-1"
+                            >
+                                <img 
+                                    src="/assets/generated/cancel-icon.dim_32x32.png" 
+                                    alt="Cancel" 
+                                    className="h-4 w-4 mr-2"
+                                />
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={isFormDisabled}
+                                className="flex-1"
+                            >
+                                {deletePickupMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete
+                                    </>
+                                )}
+                            </Button>
+                            <Button
+                                onClick={handleSave}
+                                disabled={isFormDisabled}
+                                className="flex-1"
+                            >
+                                {updatePickupMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : !isReady ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Connecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <img 
+                                            src="/assets/generated/save-icon.dim_32x32.png" 
+                                            alt="Save" 
+                                            className="h-4 w-4 mr-2"
+                                        />
+                                        Save
+                                    </>
+                                )}
+                            </Button>
                         </div>
                     )}
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={deletePickupMutation.isPending}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleConfirmDelete}
-                            disabled={deletePickupMutation.isPending}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {deletePickupMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Deleting...
-                                </>
-                            ) : (
-                                'Delete'
-                            )}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }

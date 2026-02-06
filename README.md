@@ -1,2 +1,3 @@
-# taxi-pickup-daily-log-app
-Exported from Caffeine project: Taxi Pickup Daily Log App
+## 
+
+To run app build and run docker image: `docker build -t app . docker run -it --network host app`

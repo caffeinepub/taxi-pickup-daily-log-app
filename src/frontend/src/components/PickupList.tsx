@@ -6,6 +6,7 @@ import { useGetPickupsForDate } from '../hooks/useQueries';
 import { format } from 'date-fns';
 import { PaymentMethod, Pickup } from '../backend';
 import { useMemo } from 'react';
+import { calculateOwedDriver } from '../utils/owedDriver';
 
 interface PickupListProps {
     fromDate: bigint;
@@ -95,8 +96,15 @@ export default function PickupList({ fromDate, toDate }: PickupListProps) {
     const calculatedTotalsByCredit = meterTotalsByCredit + tipTotalsByCredit;
     const calculatedTotalsByVoucher = meterTotalsByVoucher + tipTotalsByVoucher;
 
-    // Calculate Owed Driver: (meter credit + meter voucher - meter cash) / 2 + total credit tip
-    const owedDriver = (meterTotalsByCredit + meterTotalsByVoucher - meterTotalsByCash) / 2 + tipTotalsByCredit;
+    // Calculate Owed Driver using the shared utility function
+    const owedDriver = calculateOwedDriver(
+        meterTotalsByCash,
+        meterTotalsByCredit,
+        meterTotalsByVoucher,
+        tipTotalsByCash,
+        tipTotalsByCredit,
+        tipTotalsByVoucher
+    );
 
     return (
         <div className="space-y-4">

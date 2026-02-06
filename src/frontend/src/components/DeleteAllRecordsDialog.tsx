@@ -10,6 +10,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDeleteAllRecords } from '../hooks/useQueries';
+import { useActorReady } from '../hooks/useActorReady';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,6 +21,7 @@ interface DeleteAllRecordsDialogProps {
 
 export default function DeleteAllRecordsDialog({ open, onOpenChange }: DeleteAllRecordsDialogProps) {
     const deleteAllRecords = useDeleteAllRecords();
+    const { isReady } = useActorReady();
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleConfirmDelete = async () => {
@@ -36,6 +38,8 @@ export default function DeleteAllRecordsDialog({ open, onOpenChange }: DeleteAll
         }
     };
 
+    const isDisabled = isDeleting || !isReady;
+
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
@@ -46,16 +50,21 @@ export default function DeleteAllRecordsDialog({ open, onOpenChange }: DeleteAll
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isDisabled}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleConfirmDelete}
-                        disabled={isDeleting}
+                        disabled={isDisabled}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
                         {isDeleting ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Deleting...
+                            </>
+                        ) : !isReady ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Connecting...
                             </>
                         ) : (
                             'Delete All'

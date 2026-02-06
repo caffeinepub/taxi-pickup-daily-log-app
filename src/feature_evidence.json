@@ -1,0 +1,46 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-update-the-backend-actor-initialization-flow-to-never-leave-authenticated-users-stuck-on-an-indefinite-initializing-ui-if-actor-creation-or-initializeaccesscontrol-fails-the-ui-must-transition-to-a-visible-error-state-with-clear-next-actions",
+      "featureTitle": "Update the backend actor initialization flow to never leave authenticated users stuck on an indefinite “Initializing…” UI; if actor creation or `initializeAccessControl()` fails, the UI must transition to a visible error state with clear next actions.",
+      "files": [
+        "frontend/src/components/ActorInitializationGate.tsx"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-frontend-src-hooks-useactorready-ts-and-frontend-src-components-actorinitializationgate-tsx-to-use-the-new-readiness-error-status-and-display-an-error-alert-ui-with-a-retry-button-when-initialization-fails",
+      "featureTitle": "Update `frontend/src/hooks/useActorReady.ts` and `frontend/src/components/ActorInitializationGate.tsx` to use the new readiness/error status and display an error Alert UI (with a Retry button) when initialization fails.",
+      "files": [
+        "frontend/src/components/ActorInitializationGate.tsx",
+        "frontend/src/hooks/useActorReady.ts"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

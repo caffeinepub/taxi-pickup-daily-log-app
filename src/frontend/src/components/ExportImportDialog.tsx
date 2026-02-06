@@ -9,7 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Download, Upload, AlertTriangle, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import { useExportData, useImportData } from '../hooks/useQueries';
+import { useActorReady } from '../hooks/useActorReady';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { ExportData, Pickup } from '../backend';
 
@@ -36,6 +38,7 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
 
     const exportMutation = useExportData();
     const importMutation = useImportData();
+    const { isReady } = useActorReady();
 
     const handleExport = async () => {
         try {
@@ -360,6 +363,9 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
         return date.toLocaleDateString();
     };
 
+    const isExportDisabled = exportMutation.isPending || !isReady;
+    const isImportDisabled = importMutation.isPending || !isReady;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -386,13 +392,18 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
                         </p>
                         <Button
                             onClick={handleExport}
-                            disabled={exportMutation.isPending}
+                            disabled={isExportDisabled}
                             className="w-full sm:w-auto"
                         >
                             {exportMutation.isPending ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Exporting...
+                                </>
+                            ) : !isReady ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Connecting...
                                 </>
                             ) : (
                                 <>
@@ -408,141 +419,140 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
                         <div className="space-y-3">
                             <h3 className="text-lg font-semibold">Import Data</h3>
                             <p className="text-sm text-muted-foreground">
-                                Upload a previously exported JSON file to restore your pickup records and customer data. All pickups will be properly reindexed with accurate totals and payment method calculations.
+                                Upload a previously exported JSON file to restore your data. This will replace all existing records.
                             </p>
 
-                            <Alert variant="destructive">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertDescription>
-                                    <strong>Warning:</strong> Importing data will completely replace all your existing pickup records and customer data. This action cannot be undone.
-                                </AlertDescription>
-                            </Alert>
-
                             {!showConfirmation ? (
-                                <div className="space-y-3">
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".json"
-                                        onChange={handleFileSelect}
-                                        className="hidden"
-                                        id="import-file-input"
-                                    />
-                                    
-                                    {/* Drag and Drop Area */}
-                                    <div
-                                        onDragOver={handleDragOver}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={handleDrop}
-                                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                                            isDragging
-                                                ? 'border-primary bg-primary/5'
-                                                : 'border-muted-foreground/25 hover:border-primary/50'
-                                        }`}
-                                    >
-                                        <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                                        <p className="text-sm font-medium mb-2">
-                                            Drag and drop your JSON file here
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mb-4">
-                                            or
-                                        </p>
-                                        <Button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            variant="outline"
-                                            type="button"
-                                        >
-                                            <Upload className="mr-2 h-4 w-4" />
-                                            Select File
-                                        </Button>
-                                        <p className="text-xs text-muted-foreground mt-4">
-                                            Maximum file size: 10MB
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {/* File Info */}
-                                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                                        <div className="flex items-center gap-2">
-                                            <FileText className="h-5 w-5 text-muted-foreground" />
-                                            <span className="text-sm font-medium">{importFile?.name}</span>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={handleImportCancel}
-                                            disabled={importMutation.isPending}
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-
-                                    {/* Preview */}
+                                <>
                                     <Alert>
-                                        <CheckCircle2 className="h-4 w-4" />
+                                        <AlertTriangle className="h-4 w-4" />
                                         <AlertDescription>
-                                            <strong>File validated successfully</strong>
-                                            <div className="mt-3 space-y-2">
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div className="bg-background p-2 rounded">
-                                                        <p className="text-muted-foreground text-xs">Pickup Records</p>
-                                                        <p className="font-semibold">{importPreview?.pickupCount || 0}</p>
-                                                    </div>
-                                                    <div className="bg-background p-2 rounded">
-                                                        <p className="text-muted-foreground text-xs">Customer Records</p>
-                                                        <p className="font-semibold">{importPreview?.customerCount || 0}</p>
-                                                    </div>
-                                                </div>
-                                                
-                                                {importPreview && importPreview.uniquePickupIds !== importPreview.pickupCount && (
-                                                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-2 rounded text-sm">
-                                                        <p className="text-amber-800 dark:text-amber-200 text-xs">
-                                                            Note: File contains {importPreview.pickupCount} pickups with {importPreview.uniquePickupIds} unique IDs. Duplicates will be removed during import.
-                                                        </p>
-                                                    </div>
-                                                )}
-                                                
-                                                {importPreview?.dateRange && (
-                                                    <div className="bg-background p-2 rounded text-sm">
-                                                        <p className="text-muted-foreground text-xs">Date Range</p>
-                                                        <p className="font-medium">
-                                                            {importPreview.dateRange.earliest} - {importPreview.dateRange.latest}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {importPreview?.samplePickups && importPreview.samplePickups.length > 0 && (
-                                                    <div className="bg-background p-3 rounded text-sm space-y-2">
-                                                        <p className="text-muted-foreground text-xs font-medium">Sample Records:</p>
-                                                        {importPreview.samplePickups.map((pickup, idx) => (
-                                                            <div key={idx} className="border-l-2 border-primary/30 pl-2 py-1">
-                                                                <p className="text-xs">
-                                                                    <span className="font-medium">{formatDate(pickup.pickupDate)}</span>
-                                                                    {' at '}
-                                                                    <span className="font-medium">{formatTime(pickup.pickupTime)}</span>
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {pickup.streetAddress}
-                                                                    {pickup.city && `, ${pickup.city}`}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Meter: ${pickup.meterTotal.toFixed(2)} ({pickup.meterPaymentMethod}), 
-                                                                    Tip: ${pickup.tip.toFixed(2)} ({pickup.tipPaymentMethod})
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <strong>Warning:</strong> Importing data will permanently replace all your current records. Make sure to export your current data first if you want to keep it.
                                         </AlertDescription>
                                     </Alert>
 
-                                    {/* Confirmation Buttons */}
-                                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                                    <div
+                                        className={cn(
+                                            'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+                                            isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
+                                            isImportDisabled && 'opacity-50 cursor-not-allowed'
+                                        )}
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                    >
+                                        <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                                        <p className="text-sm text-muted-foreground mb-4">
+                                            Drag and drop your JSON file here, or click to browse
+                                        </p>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept=".json"
+                                            onChange={handleFileSelect}
+                                            className="hidden"
+                                            id="file-upload"
+                                            disabled={isImportDisabled}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isImportDisabled}
+                                        >
+                                            {!isReady ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Connecting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                    Select File
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Import Preview */}
+                                    <Alert>
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        <AlertDescription>
+                                            <strong>File validated successfully!</strong> Review the preview below before importing.
+                                        </AlertDescription>
+                                    </Alert>
+
+                                    {importPreview && (
+                                        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-semibold">Import Preview</h4>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={handleImportCancel}
+                                                    disabled={isImportDisabled}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <p className="text-muted-foreground">Unique Pickups</p>
+                                                    <p className="text-lg font-semibold">{importPreview.uniquePickupIds}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Customers</p>
+                                                    <p className="text-lg font-semibold">{importPreview.customerCount}</p>
+                                                </div>
+                                            </div>
+
+                                            {importPreview.dateRange && (
+                                                <div className="text-sm">
+                                                    <p className="text-muted-foreground">Date Range</p>
+                                                    <p className="font-medium">
+                                                        {importPreview.dateRange.earliest} - {importPreview.dateRange.latest}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {importPreview.samplePickups.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <p className="text-sm text-muted-foreground">Sample Records</p>
+                                                    {importPreview.samplePickups.map((pickup) => (
+                                                        <div
+                                                            key={pickup.id.toString()}
+                                                            className="text-xs p-2 bg-background rounded border"
+                                                        >
+                                                            <div className="flex justify-between">
+                                                                <span className="font-medium">{pickup.streetAddress}</span>
+                                                                <span className="text-muted-foreground">
+                                                                    {formatDate(pickup.pickupDate)} {formatTime(pickup.pickupTime)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-muted-foreground">
+                                                                ${pickup.calculatedTotal.toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleImportCancel}
+                                            disabled={isImportDisabled}
+                                            className="flex-1"
+                                        >
+                                            Cancel
+                                        </Button>
                                         <Button
                                             onClick={handleImportConfirm}
-                                            disabled={importMutation.isPending}
+                                            disabled={isImportDisabled}
                                             className="flex-1"
                                         >
                                             {importMutation.isPending ? (
@@ -550,23 +560,20 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                     Importing...
                                                 </>
+                                            ) : !isReady ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Connecting...
+                                                </>
                                             ) : (
                                                 <>
-                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                    Import Data
+                                                    <Upload className="mr-2 h-4 w-4" />
+                                                    Confirm Import
                                                 </>
                                             )}
                                         </Button>
-                                        <Button
-                                            onClick={handleImportCancel}
-                                            variant="outline"
-                                            disabled={importMutation.isPending}
-                                            className="flex-1"
-                                        >
-                                            Cancel
-                                        </Button>
                                     </div>
-                                </div>
+                                </>
                             )}
                         </div>
                     </div>

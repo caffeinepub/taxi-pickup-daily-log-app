@@ -1,0 +1,68 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Surface actor initialization errors to avoid infinite “Initializing…” and add retry",
+  "requirements": [
+    {
+      "id": "REQ-5",
+      "summary": "Ensure authenticated users never get stuck on an indefinite “Initializing…” view by transitioning to a visible error state with clear next actions when actor creation or access-control initialization fails.",
+      "acceptanceCriteria": [
+        "When the app is authenticated and actor initialization fails (e.g., the actor query rejects), the screen shows an error state instead of an infinite spinner.",
+        "The error state includes a user-friendly English message indicating the backend connection/initialization failed.",
+        "The error state includes a retry action that re-attempts actor initialization without requiring a full page refresh.",
+        "There is no remaining code path where `ActorInitializationGate` renders the fallback “Initializing...” view indefinitely when initialization has actually errored."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ActorInitializationGate.tsx",
+          "operation": "modify",
+          "description": "Replace the indefinite fallback “Initializing...” render path with an explicit error state whenever actor initialization has failed; include clear English guidance and next actions (at minimum: a Retry button wired to actor re-initialization, and optionally a secondary action like logging out to re-auth). Ensure authenticated users cannot remain on a spinner once the underlying actor initialization has errored."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Confirm the authenticated flow remains wrapped by `ActorInitializationGate` and that no other authenticated code path can render a perpetual initialization/loading UI when actor initialization has already errored (e.g., avoid downstream pages assuming actor readiness without the gate)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Enhance `useActor` to expose explicit readiness/loading/error state and a working retry (`refetch`) mechanism with sensible finite retry behavior.",
+      "acceptanceCriteria": [
+        "`useActor` returns `actor`, `isLoading`, `isReady`, `isError`, and `error` in a way that distinguishes: loading vs success vs error.",
+        "`useActor` exposes a working retry mechanism (e.g., returns `refetch` from the underlying React Query) that triggers a new initialization attempt.",
+        "If actor initialization fails, `error` is non-null and `isError` is true; `actor` remains null and `isReady` is false.",
+        "React Query retry behavior for the actor initialization query is configured to be sensible (finite retries with backoff) so transient failures don’t permanently wedge the app, and persistent failures converge to an error state."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useActor.ts",
+          "operation": "modify",
+          "description": "Update the actor initialization React Query to expose explicit status flags and error details: return `{ actor, isLoading, isReady, isError, error, refetch }` (and keep any existing fields needed by current consumers). Ensure the query properly throws when authenticated actor creation or the access-control initialization step fails (ties to the authorization component’s initialization behavior—verify the component's usage instructions before implementing). Configure React Query retry with finite attempts and backoff, and ensure persistent failures settle into an error state with `actor` remaining null until a successful retry."
+        }
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "summary": "Update `useActorReady` and `ActorInitializationGate` to use real actor readiness/error status and render an English error Alert with a Retry button on failure.",
+      "acceptanceCriteria": [
+        "`useActorReady` no longer hard-codes `isError = false` and `error = null`; it reflects the real actor query status.",
+        "`ActorInitializationGate` shows a loading UI only while initialization is actually in progress.",
+        "`ActorInitializationGate` shows an error `Alert` (English text) when initialization fails, and includes a Retry button wired to the actor retry mechanism.",
+        "On successful retry, the gate proceeds to render its children without requiring navigation or re-login."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useActorReady.ts",
+          "operation": "modify",
+          "description": "Refactor `useActorReady` to derive its fields directly from the enhanced `useActor` return shape, including real `isError`/`error` and a callable `refetch` retry function. Remove placeholder/no-op error and retry logic."
+        },
+        {
+          "path": "frontend/src/components/ActorInitializationGate.tsx",
+          "operation": "modify",
+          "description": "Update the gate to use the new `useActorReady`/`useActor` status: render the existing loading UI only while `isLoading` is true; render an `Alert` error UI (English message) when `isError` is true (or when not loading and not ready due to an error), with a Retry button wired to `refetch`. Use existing shadcn/ui `Alert` and `Button` components (do not edit `frontend/src/components/ui/*`). Verify the component's usage instructions before implementing."
+        }
+      ]
+    }
+  ]
+}

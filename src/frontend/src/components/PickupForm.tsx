@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useRecordPickup, useFindCustomerByAddress, useFindCustomerByPhoneNumber } from '../hooks/useQueries';
+import { useActorReady } from '../hooks/useActorReady';
 import { PaymentMethod } from '../backend';
 import CustomerLookup from './CustomerLookup';
 
@@ -35,6 +36,7 @@ export default function PickupForm({ selectedDate, onDateChange }: PickupFormPro
     const [phoneLookupEnabled, setPhoneLookupEnabled] = useState(false);
 
     const recordPickupMutation = useRecordPickup();
+    const { isReady } = useActorReady();
 
     // Lookup customer by address
     const { data: customerByAddress } = useFindCustomerByAddress(
@@ -189,6 +191,8 @@ export default function PickupForm({ selectedDate, onDateChange }: PickupFormPro
         }
     };
 
+    const isFormDisabled = recordPickupMutation.isPending || !isReady;
+
     return (
         <Card className="shadow-lg border-2 border-primary/10 hover:border-primary/20 transition-colors">
             <CardHeader className="space-y-3 pb-6">
@@ -200,383 +204,283 @@ export default function PickupForm({ selectedDate, onDateChange }: PickupFormPro
                             className="w-8 h-8"
                         />
                     </div>
-                    <div className="flex-1">
-                        <CardTitle className="text-2xl font-bold">New Pickup</CardTitle>
-                        <CardDescription className="text-base mt-1">
-                            Record passenger details and trip information
-                        </CardDescription>
+                    <div>
+                        <CardTitle className="text-2xl">Record Pickup</CardTitle>
+                        <CardDescription>Enter pickup details</CardDescription>
                     </div>
                 </div>
-                <Separator className="bg-primary/10" />
             </CardHeader>
-            <CardContent className="pb-8">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Pickup Date Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <img 
-                                    src="/assets/generated/calendar-icon.dim_32x32.png" 
-                                    alt="Calendar" 
-                                    className="w-5 h-5"
+            <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Pickup Date */}
+                    <div className="space-y-2">
+                        <Label htmlFor="pickupDate" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/calendar-icon.dim_32x32.png" 
+                                alt="Calendar" 
+                                className="w-4 h-4"
+                            />
+                            Pickup Date <span className="text-destructive">*</span>
+                        </Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="pickupDate"
+                                    variant="outline"
+                                    className={cn(
+                                        'w-full justify-start text-left font-normal h-11',
+                                        !selectedDate && 'text-muted-foreground'
+                                    )}
+                                    disabled={isFormDisabled}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    onSelect={(date) => date && onDateChange(date)}
+                                    initialFocus
                                 />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Pickup Date</h3>
-                        </div>
-                        <div className="space-y-2.5 pl-9">
-                            <Label 
-                                htmlFor="pickupDate" 
-                                className="text-sm font-medium text-muted-foreground"
-                            >
-                                Date (for new pickup and viewing list) <span className="text-destructive">*</span>
-                            </Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="pickupDate"
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full h-11 justify-start text-left font-normal border-2 focus-visible:ring-2 focus-visible:ring-primary/20",
-                                            !selectedDate && "text-muted-foreground"
-                                        )}
-                                        disabled={recordPickupMutation.isPending}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={selectedDate}
-                                        onSelect={(date) => date && onDateChange(date)}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            <p className="text-xs text-muted-foreground pl-1">
-                                This date will be saved with the new pickup and used to filter the pickup list below
-                            </p>
-                        </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
-                    <Separator className="bg-border/50" />
-
-                    {/* Pickup Location Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <img 
-                                    src="/assets/generated/pickup-location-icon.dim_32x32.png" 
-                                    alt="Pickup" 
-                                    className="w-5 h-5"
-                                />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Pickup Location</h3>
-                        </div>
-                        <div className="space-y-4 pl-9">
-                            <div className="space-y-2.5">
-                                <Label 
-                                    htmlFor="streetAddress" 
-                                    className="text-sm font-medium text-muted-foreground"
-                                >
-                                    Street Address <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="streetAddress"
-                                    placeholder="Enter street address (e.g., 123 Main St)"
-                                    value={streetAddress}
-                                    onChange={(e) => handleStreetAddressChange(e.target.value)}
-                                    disabled={recordPickupMutation.isPending}
-                                    className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2.5">
-                                <Label 
-                                    htmlFor="city" 
-                                    className="text-sm font-medium text-muted-foreground"
-                                >
-                                    City
-                                </Label>
-                                <Input
-                                    id="city"
-                                    placeholder="Enter city (optional)"
-                                    value={city}
-                                    onChange={(e) => handleCityChange(e.target.value)}
-                                    disabled={recordPickupMutation.isPending}
-                                    className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator className="bg-border/50" />
-
-                    {/* Customer Information Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <img 
-                                    src="/assets/generated/customer-icon.dim_32x32.png" 
-                                    alt="Customer" 
-                                    className="w-5 h-5"
-                                />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Customer Information</h3>
-                        </div>
-                        <div className="space-y-4 pl-9">
-                            <div className="space-y-2.5">
-                                <Label 
-                                    htmlFor="customerName" 
-                                    className="text-sm font-medium text-muted-foreground"
-                                >
-                                    Name
-                                </Label>
-                                <CustomerLookup
-                                    value={customerName}
-                                    onChange={setCustomerName}
-                                    disabled={recordPickupMutation.isPending}
-                                />
-                            </div>
-                            <div className="space-y-2.5">
-                                <Label 
-                                    htmlFor="phoneNumber" 
-                                    className="text-sm font-medium text-muted-foreground"
-                                >
-                                    Phone Number
-                                </Label>
-                                <div className="flex items-center gap-2">
-                                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                                        <img 
-                                            src="/assets/generated/phone-icon.dim_32x32.png" 
-                                            alt="Phone" 
-                                            className="w-4 h-4"
-                                        />
-                                    </div>
-                                    <Input
-                                        id="phoneNumber"
-                                        type="tel"
-                                        placeholder="Enter phone number (optional)"
-                                        value={phoneNumber}
-                                        onChange={(e) => handlePhoneNumberChange(e.target.value)}
-                                        disabled={recordPickupMutation.isPending}
-                                        className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator className="bg-border/50" />
-
-                    {/* Pickup Time Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <img 
-                                    src="/assets/generated/time-icon.dim_32x32.png" 
-                                    alt="Time" 
-                                    className="w-5 h-5"
-                                />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Pickup Time</h3>
-                        </div>
-                        <div className="space-y-2.5 pl-9">
-                            <Label 
-                                htmlFor="pickupTime" 
-                                className="text-sm font-medium text-muted-foreground"
-                            >
-                                Time <span className="text-destructive">*</span>
-                            </Label>
+                    {/* Pickup Time */}
+                    <div className="space-y-2">
+                        <Label htmlFor="pickupTime" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/time-icon.dim_32x32.png" 
+                                alt="Time" 
+                                className="w-4 h-4"
+                            />
+                            Pickup Time <span className="text-destructive">*</span>
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
                             <Input
                                 id="pickupTime"
                                 type="time"
                                 value={pickupTime}
                                 onChange={(e) => setPickupTime(e.target.value)}
-                                disabled={recordPickupMutation.isPending}
-                                className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                required
-                            />
-                            <p className="text-xs text-muted-foreground pl-1">
-                                Enter the pickup time for this trip (defaults to 20 minutes from now)
-                            </p>
-                        </div>
-                    </div>
-
-                    <Separator className="bg-border/50" />
-
-                    {/* Destination Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <img 
-                                    src="/assets/generated/destination-icon.dim_32x32.png" 
-                                    alt="Destination" 
-                                    className="w-5 h-5"
-                                />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Destination</h3>
-                        </div>
-                        <div className="space-y-2.5 pl-9">
-                            <Label 
-                                htmlFor="destinationAddress" 
-                                className="text-sm font-medium text-muted-foreground"
-                            >
-                                Address <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                                id="destinationAddress"
-                                placeholder="Enter destination address"
-                                value={destinationAddress}
-                                onChange={(e) => setDestinationAddress(e.target.value)}
-                                disabled={recordPickupMutation.isPending}
-                                className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                required
+                                disabled={isFormDisabled}
+                                className="h-11"
                             />
                         </div>
                     </div>
 
-                    <Separator className="bg-border/50" />
+                    <Separator />
 
-                    {/* Fare Information Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="p-1.5 rounded-lg bg-primary/10">
-                                <DollarSign className="w-5 h-5 text-primary" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-foreground">Fare Information</h3>
-                        </div>
-                        <div className="space-y-4 pl-9">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2.5">
-                                    <Label 
-                                        htmlFor="meterTotal" 
-                                        className="text-sm font-medium text-muted-foreground"
-                                    >
-                                        Meter Total
-                                    </Label>
-                                    <Input
-                                        id="meterTotal"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        placeholder="0.00 (optional)"
-                                        value={meterTotal}
-                                        onChange={(e) => setMeterTotal(e.target.value)}
-                                        disabled={recordPickupMutation.isPending}
-                                        className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    />
-                                </div>
-                                <div className="space-y-2.5">
-                                    <Label 
-                                        htmlFor="paymentMethod" 
-                                        className="text-sm font-medium text-muted-foreground"
-                                    >
-                                        Payment Method
-                                    </Label>
-                                    <Select
-                                        value={paymentMethod}
-                                        onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
-                                        disabled={recordPickupMutation.isPending}
-                                    >
-                                        <SelectTrigger 
-                                            id="paymentMethod"
-                                            className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                        >
-                                            <SelectValue placeholder="Select payment method" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
-                                            <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
-                                            <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2.5">
-                                    <Label 
-                                        htmlFor="tip" 
-                                        className="text-sm font-medium text-muted-foreground"
-                                    >
-                                        Tip
-                                    </Label>
-                                    <Input
-                                        id="tip"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        placeholder="0.00 (optional)"
-                                        value={tip}
-                                        onChange={(e) => setTip(e.target.value)}
-                                        disabled={recordPickupMutation.isPending}
-                                        className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                    />
-                                </div>
-                                <div className="space-y-2.5">
-                                    <Label 
-                                        htmlFor="tipPaymentMethod" 
-                                        className="text-sm font-medium text-muted-foreground"
-                                    >
-                                        Tip Payment Method
-                                    </Label>
-                                    <Select
-                                        value={tipPaymentMethod}
-                                        onValueChange={(value) => setTipPaymentMethod(value as PaymentMethod)}
-                                        disabled={recordPickupMutation.isPending}
-                                    >
-                                        <SelectTrigger 
-                                            id="tipPaymentMethod"
-                                            className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
-                                        >
-                                            <SelectValue placeholder="Select tip payment method" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
-                                            <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
-                                            <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="space-y-2.5">
-                                <Label 
-                                    htmlFor="calculatedTotal" 
-                                    className="text-sm font-medium text-muted-foreground"
-                                >
-                                    Calculated Total
-                                </Label>
-                                <div className="h-11 px-3 py-2 rounded-md border-2 border-muted bg-muted/50 flex items-center text-base font-semibold text-foreground">
-                                    ${calculatedTotal.toFixed(2)}
-                                </div>
-                            </div>
-                        </div>
+                    {/* Customer Lookup */}
+                    <CustomerLookup
+                        value={customerName}
+                        onChange={(name) => setCustomerName(name)}
+                        disabled={isFormDisabled}
+                    />
+
+                    {/* Street Address */}
+                    <div className="space-y-2">
+                        <Label htmlFor="streetAddress" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/pickup-location-icon.dim_32x32.png" 
+                                alt="Pickup Location" 
+                                className="w-4 h-4"
+                            />
+                            Street Address <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="streetAddress"
+                            placeholder="123 Main St"
+                            value={streetAddress}
+                            onChange={(e) => handleStreetAddressChange(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
                     </div>
 
-                    <Separator className="bg-border/50" />
+                    {/* City */}
+                    <div className="space-y-2">
+                        <Label htmlFor="city">City</Label>
+                        <Input
+                            id="city"
+                            placeholder="City name"
+                            value={city}
+                            onChange={(e) => handleCityChange(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    {/* Customer Name */}
+                    <div className="space-y-2">
+                        <Label htmlFor="customerName" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/customer-icon.dim_32x32.png" 
+                                alt="Customer" 
+                                className="w-4 h-4"
+                            />
+                            Customer Name
+                        </Label>
+                        <Input
+                            id="customerName"
+                            placeholder="John Doe"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    {/* Phone Number */}
+                    <div className="space-y-2">
+                        <Label htmlFor="phoneNumber" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/phone-icon.dim_32x32.png" 
+                                alt="Phone" 
+                                className="w-4 h-4"
+                            />
+                            Phone Number
+                        </Label>
+                        <Input
+                            id="phoneNumber"
+                            type="tel"
+                            placeholder="555-1234"
+                            value={phoneNumber}
+                            onChange={(e) => handlePhoneNumberChange(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    {/* Destination Address */}
+                    <div className="space-y-2">
+                        <Label htmlFor="destinationAddress" className="flex items-center gap-2">
+                            <img 
+                                src="/assets/generated/destination-icon.dim_32x32.png" 
+                                alt="Destination" 
+                                className="w-4 h-4"
+                            />
+                            Destination Address <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="destinationAddress"
+                            placeholder="456 Oak Ave"
+                            value={destinationAddress}
+                            onChange={(e) => setDestinationAddress(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    <Separator />
+
+                    {/* Meter Total */}
+                    <div className="space-y-2">
+                        <Label htmlFor="meterTotal" className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" />
+                            Meter Total
+                        </Label>
+                        <Input
+                            id="meterTotal"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={meterTotal}
+                            onChange={(e) => setMeterTotal(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div className="space-y-2">
+                        <Label htmlFor="paymentMethod">Meter Payment Method</Label>
+                        <Select
+                            value={paymentMethod}
+                            onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                            disabled={isFormDisabled}
+                        >
+                            <SelectTrigger id="paymentMethod" className="h-11">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
+                                <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
+                                <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Tip */}
+                    <div className="space-y-2">
+                        <Label htmlFor="tip" className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" />
+                            Tip
+                        </Label>
+                        <Input
+                            id="tip"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={tip}
+                            onChange={(e) => setTip(e.target.value)}
+                            disabled={isFormDisabled}
+                            className="h-11"
+                        />
+                    </div>
+
+                    {/* Tip Payment Method */}
+                    <div className="space-y-2">
+                        <Label htmlFor="tipPaymentMethod">Tip Payment Method</Label>
+                        <Select
+                            value={tipPaymentMethod}
+                            onValueChange={(value) => setTipPaymentMethod(value as PaymentMethod)}
+                            disabled={isFormDisabled}
+                        >
+                            <SelectTrigger id="tipPaymentMethod" className="h-11">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
+                                <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
+                                <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Calculated Total */}
+                    <div className="rounded-lg bg-muted/50 p-4 border-2 border-primary/20">
+                        <div className="flex justify-between items-center">
+                            <span className="text-lg font-semibold">Calculated Total:</span>
+                            <span className="text-2xl font-bold text-primary">
+                                ${calculatedTotal.toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
 
                     {/* Submit Button */}
-                    <div className="pt-2">
-                        <Button
-                            type="submit"
-                            size="lg"
-                            className="w-full h-12 text-base font-semibold shadow-md hover:shadow-lg transition-all"
-                            disabled={recordPickupMutation.isPending}
-                        >
-                            {recordPickupMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    Recording Pickup...
-                                </>
-                            ) : (
-                                <>
-                                    <Clock className="mr-2 h-5 w-5" />
-                                    Record Pickup
-                                </>
-                            )}
-                        </Button>
-                    </div>
+                    <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full h-12 text-base font-semibold"
+                        disabled={isFormDisabled}
+                    >
+                        {recordPickupMutation.isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                Recording...
+                            </>
+                        ) : !isReady ? (
+                            <>
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                Connecting...
+                            </>
+                        ) : (
+                            'Record Pickup'
+                        )}
+                    </Button>
                 </form>
             </CardContent>
         </Card>

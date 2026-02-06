@@ -4,6 +4,7 @@ import { useInternetIdentity } from './hooks/useInternetIdentity';
 import LoginPage from './pages/LoginPage';
 import AccountSetupPage from './pages/AccountSetupPage';
 import MainApp from './pages/MainApp';
+import ActorInitializationGate from './components/ActorInitializationGate';
 import { Loader2 } from 'lucide-react';
 import { useGetProfile } from './hooks/useQueries';
 
@@ -39,10 +40,12 @@ function AppContent() {
         );
     }
 
-    // Driver is authenticated, show account setup or main app
+    // Driver is authenticated, wrap in ActorInitializationGate
     return (
         <>
-            <DriverApp />
+            <ActorInitializationGate>
+                <DriverApp />
+            </ActorInitializationGate>
             <Toaster />
         </>
     );

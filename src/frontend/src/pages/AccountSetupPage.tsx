@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, UserCircle, Phone, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGetProfile, useSetupProfile } from '../hooks/useQueries';
+import { useActorReady } from '../hooks/useActorReady';
 
 export default function AccountSetupPage() {
     const [driverName, setDriverName] = useState('');
@@ -14,6 +15,7 @@ export default function AccountSetupPage() {
     const [emailError, setEmailError] = useState('');
     const { data: profile } = useGetProfile();
     const setupProfileMutation = useSetupProfile();
+    const { isReady } = useActorReady();
 
     useEffect(() => {
         if (profile) {
@@ -71,6 +73,8 @@ export default function AccountSetupPage() {
         }
     };
 
+    const isFormDisabled = setupProfileMutation.isPending || !isReady;
+
     return (
         <div className="flex min-h-screen flex-col">
             <header className="border-b bg-card">
@@ -117,7 +121,7 @@ export default function AccountSetupPage() {
                                         placeholder="Enter your full name"
                                         value={driverName}
                                         onChange={(e) => setDriverName(e.target.value)}
-                                        disabled={setupProfileMutation.isPending}
+                                        disabled={isFormDisabled}
                                         className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
                                     />
                                 </div>
@@ -137,7 +141,7 @@ export default function AccountSetupPage() {
                                         placeholder="Enter your phone number"
                                         value={contactInfo}
                                         onChange={(e) => setContactInfo(e.target.value)}
-                                        disabled={setupProfileMutation.isPending}
+                                        disabled={isFormDisabled}
                                         className="h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20"
                                     />
                                 </div>
@@ -157,7 +161,7 @@ export default function AccountSetupPage() {
                                         placeholder="Enter your email address"
                                         value={email}
                                         onChange={handleEmailChange}
-                                        disabled={setupProfileMutation.isPending}
+                                        disabled={isFormDisabled}
                                         className={`h-11 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary/20 ${
                                             emailError ? 'border-destructive' : ''
                                         }`}
@@ -172,12 +176,17 @@ export default function AccountSetupPage() {
                                 type="submit"
                                 size="lg"
                                 className="w-full h-12 text-base font-semibold shadow-md hover:shadow-lg transition-all"
-                                disabled={setupProfileMutation.isPending || !!emailError}
+                                disabled={isFormDisabled || !!emailError}
                             >
                                 {setupProfileMutation.isPending ? (
                                     <>
                                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                                         Saving Profile...
+                                    </>
+                                ) : !isReady ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                        Connecting...
                                     </>
                                 ) : (
                                     'Complete Setup'
@@ -191,7 +200,7 @@ export default function AccountSetupPage() {
             <footer className="border-t bg-card mt-auto">
                 <div className="container mx-auto px-4 py-6 max-w-4xl">
                     <div className="text-center text-sm text-muted-foreground">
-                        © 2025. Built with love using{' '}
+                        © 2026. Built with love using{' '}
                         <a
                             href="https://caffeine.ai"
                             target="_blank"

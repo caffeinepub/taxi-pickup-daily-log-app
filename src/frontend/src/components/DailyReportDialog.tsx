@@ -20,6 +20,7 @@ import { useGetPickupsForDate } from '../hooks/useQueries';
 import { cn } from '@/lib/utils';
 import type { DailyTotals } from '../backend';
 import { PaymentMethod } from '../backend';
+import { calculateOwedDriver } from '../utils/owedDriver';
 
 interface DailyReportDialogProps {
     open: boolean;
@@ -118,8 +119,15 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
             // Update calculated total
             daily.calculatedTotal = daily.meterTotal + daily.tipTotal;
             
-            // Calculate owed driver: ((credit + voucher) - cash) / 2 + credit tips + voucher tips
-            daily.owedDriver = ((daily.creditTotal + daily.voucherTotal - daily.cashTotal) / 2) + daily.creditTipTotal + daily.voucherTipTotal;
+            // Calculate owed driver using the shared utility function
+            daily.owedDriver = calculateOwedDriver(
+                daily.cashTotal,
+                daily.creditTotal,
+                daily.voucherTotal,
+                daily.cashTipTotal,
+                daily.creditTipTotal,
+                daily.voucherTipTotal
+            );
         });
 
         // Convert to array and sort chronologically (earliest date first)
@@ -152,8 +160,15 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
             totalCalculated += daily.calculatedTotal;
         });
 
-        // Calculate total owed driver: ((total credit + total voucher) - total cash) / 2 + total credit tips + total voucher tips
-        const totalOwedDriver = ((totalCredit + totalVoucher - totalCash) / 2) + totalCreditTips + totalVoucherTips;
+        // Calculate total owed driver using the shared utility function
+        const totalOwedDriver = calculateOwedDriver(
+            totalCash,
+            totalCredit,
+            totalVoucher,
+            totalCashTips,
+            totalCreditTips,
+            totalVoucherTips
+        );
 
         return {
             dailyTotals: uniqueDailyTotals,
@@ -222,9 +237,15 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
         const actualTotalTips = actualTipCash + actualTipCredit + actualTipVoucher;
         const actualTotalCalculated = actualTotalMeter + actualTotalTips;
         
-        // Calculate actual owed driver using the correct formula:
-        // ((credit meter + voucher meter) - cash meter) / 2 + credit tips + voucher tips
-        const actualOwedDriver = ((actualMeterCredit + actualMeterVoucher - actualMeterCash) / 2) + actualTipCredit + actualTipVoucher;
+        // Calculate actual owed driver using the shared utility function
+        const actualOwedDriver = calculateOwedDriver(
+            actualMeterCash,
+            actualMeterCredit,
+            actualMeterVoucher,
+            actualTipCash,
+            actualTipCredit,
+            actualTipVoucher
+        );
 
         // Compare with report summary (with tolerance for floating point precision)
         const tolerance = 0.01;
@@ -403,167 +424,123 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                         <div className="space-y-6 border-t pt-6">
                             {processedReport.dailyTotals.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
-                                    No pickups found for the selected date range
+                                    <p>No pickups found for the selected date range</p>
                                 </div>
                             ) : (
                                 <>
-                                    <div>
-                                        <h3 className="text-lg font-semibold mb-4">Daily Breakdown</h3>
-                                        <div className="space-y-4">
-                                            {processedReport.dailyTotals.map((daily) => (
-                                                <div key={daily.date.toString()} className="border rounded-lg p-4 bg-card">
-                                                    <h4 className="font-medium mb-3">
-                                                        {format(new Date(Number(daily.date) / 1000000), 'PPPP')}
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Daily Breakdown */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-semibold">Daily Breakdown</h3>
+                                        {processedReport.dailyTotals.map((daily) => {
+                                            const date = new Date(Number(daily.date) / 1000000);
+                                            return (
+                                                <div key={daily.date.toString()} className="border rounded-lg p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="font-semibold">{format(date, 'EEEE, MMMM d, yyyy')}</h4>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                                         <div>
-                                                            <p className="text-sm font-medium text-muted-foreground mb-2">
-                                                                Meter Totals
-                                                            </p>
-                                                            <div className="space-y-1 text-sm">
-                                                                <div className="flex justify-between">
-                                                                    <span>Cash:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.cashTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>Credit:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.creditTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>Voucher:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.voucherTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between pt-1 border-t font-semibold">
-                                                                    <span>Total:</span>
-                                                                    <span>{formatCurrency(daily.meterTotal)}</span>
-                                                                </div>
-                                                            </div>
+                                                            <p className="text-muted-foreground text-xs">Meter Total</p>
+                                                            <p className="font-semibold">{formatCurrency(daily.meterTotal)}</p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-medium text-muted-foreground mb-2">
-                                                                Tip Totals
+                                                            <p className="text-muted-foreground text-xs">Tips Total</p>
+                                                            <p className="font-semibold">{formatCurrency(daily.tipTotal)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">Grand Total</p>
+                                                            <p className="font-semibold text-primary">{formatCurrency(daily.calculatedTotal)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">Owed Driver</p>
+                                                            <p className={`font-semibold ${daily.owedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                                                {formatCurrency(daily.owedDriver)}
                                                             </p>
-                                                            <div className="space-y-1 text-sm">
-                                                                <div className="flex justify-between">
-                                                                    <span>Cash:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.cashTipTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>Credit:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.creditTipTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>Voucher:</span>
-                                                                    <span className="font-medium">{formatCurrency(daily.voucherTipTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between pt-1 border-t font-semibold">
-                                                                    <span>Total:</span>
-                                                                    <span>{formatCurrency(daily.tipTotal)}</span>
-                                                                </div>
-                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="mt-3 pt-3 border-t">
-                                                        <div className="flex justify-between font-semibold text-primary">
-                                                            <span>Daily Total (Meter + Tips):</span>
-                                                            <span>{formatCurrency(daily.calculatedTotal)}</span>
+
+                                                    <div className="grid grid-cols-3 gap-3 pt-2 border-t text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs mb-1">Cash</p>
+                                                            <p className="text-xs">Meter: {formatCurrency(daily.cashTotal)}</p>
+                                                            <p className="text-xs">Tips: {formatCurrency(daily.cashTipTotal)}</p>
                                                         </div>
-                                                    </div>
-                                                    <div className="mt-3 pt-3 border-t bg-accent/30 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <Wallet className="h-4 w-4 text-primary" />
-                                                                <span className="font-semibold">Owed Driver:</span>
-                                                            </div>
-                                                            <span className={`font-bold text-lg ${daily.owedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                                                                {daily.owedDriver >= 0 ? '+' : ''}{formatCurrency(daily.owedDriver)}
-                                                            </span>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs mb-1">Credit</p>
+                                                            <p className="text-xs">Meter: {formatCurrency(daily.creditTotal)}</p>
+                                                            <p className="text-xs">Tips: {formatCurrency(daily.creditTipTotal)}</p>
                                                         </div>
-                                                        <div className="mt-2 text-xs text-muted-foreground">
-                                                            Formula: ((Credit ${daily.creditTotal.toFixed(2)} + Voucher ${daily.voucherTotal.toFixed(2)}) - Cash ${daily.cashTotal.toFixed(2)}) ÷ 2 + Credit Tips ${daily.creditTipTotal.toFixed(2)} + Voucher Tips ${daily.voucherTipTotal.toFixed(2)}
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs mb-1">Voucher</p>
+                                                            <p className="text-xs">Meter: {formatCurrency(daily.voucherTotal)}</p>
+                                                            <p className="text-xs">Tips: {formatCurrency(daily.voucherTipTotal)}</p>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
                                     </div>
 
-                                    <div className="border-t pt-6">
-                                        <h3 className="text-lg font-semibold mb-4">Summary Totals</h3>
-                                        <div className="border rounded-lg p-4 bg-primary/5">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <p className="text-sm font-medium text-muted-foreground mb-2">
-                                                        Total Meter
-                                                    </p>
-                                                    <div className="space-y-1 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span>Cash:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCash)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span>Credit:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCredit)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span>Voucher:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalVoucher)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between pt-1 border-t font-semibold">
-                                                            <span>Total:</span>
-                                                            <span>{formatCurrency(processedReport.summary.totalMeter)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-muted-foreground mb-2">
-                                                        Total Tips
-                                                    </p>
-                                                    <div className="space-y-1 text-sm">
-                                                        <div className="flex justify-between">
-                                                            <span>Cash:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCashTips)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span>Credit:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalCreditTips)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span>Voucher:</span>
-                                                            <span className="font-medium">{formatCurrency(processedReport.summary.totalVoucherTips)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between pt-1 border-t font-semibold">
-                                                            <span>Total:</span>
-                                                            <span>{formatCurrency(processedReport.summary.totalTips)}</span>
-                                                        </div>
-                                                    </div>
+                                    {/* Summary Section */}
+                                    <div className="border-t pt-6 space-y-4">
+                                        <h3 className="text-lg font-semibold">Summary</h3>
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-muted-foreground">Total Meter</p>
+                                                <p className="text-xl font-bold">{formatCurrency(processedReport.summary.totalMeter)}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-muted-foreground">Total Tips</p>
+                                                <p className="text-xl font-bold">{formatCurrency(processedReport.summary.totalTips)}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-muted-foreground">Grand Total</p>
+                                                <p className="text-xl font-bold text-primary">{formatCurrency(processedReport.summary.totalCalculated)}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-muted-foreground">Total Owed Driver</p>
+                                                <p className={`text-xl font-bold ${processedReport.summary.totalOwedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                                    {formatCurrency(processedReport.summary.totalOwedDriver)}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-sm">Cash</h4>
+                                                <div className="text-sm space-y-1">
+                                                    <p>Meter: {formatCurrency(processedReport.summary.totalCash)}</p>
+                                                    <p>Tips: {formatCurrency(processedReport.summary.totalCashTips)}</p>
                                                 </div>
                                             </div>
-                                            <div className="mt-4 pt-4 border-t">
-                                                <div className="flex justify-between text-lg font-bold text-primary">
-                                                    <span>Grand Total (Meter + Tips):</span>
-                                                    <span>{formatCurrency(processedReport.summary.totalCalculated)}</span>
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-sm">Credit</h4>
+                                                <div className="text-sm space-y-1">
+                                                    <p>Meter: {formatCurrency(processedReport.summary.totalCredit)}</p>
+                                                    <p>Tips: {formatCurrency(processedReport.summary.totalCreditTips)}</p>
                                                 </div>
                                             </div>
-                                            <div className="mt-4 pt-4 border-t bg-accent/50 -mx-4 -mb-4 px-4 py-4 rounded-b-lg">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <Wallet className="h-5 w-5 text-primary" />
-                                                        <span className="text-lg font-bold">Total Owed Driver:</span>
-                                                    </div>
-                                                    <span className={`font-bold text-2xl ${processedReport.summary.totalOwedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                                                        {processedReport.summary.totalOwedDriver >= 0 ? '+' : ''}{formatCurrency(processedReport.summary.totalOwedDriver)}
-                                                    </span>
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-sm">Voucher</h4>
+                                                <div className="text-sm space-y-1">
+                                                    <p>Meter: {formatCurrency(processedReport.summary.totalVoucher)}</p>
+                                                    <p>Tips: {formatCurrency(processedReport.summary.totalVoucherTips)}</p>
                                                 </div>
-                                                <div className="mt-2 text-xs text-muted-foreground">
-                                                    Formula: ((Total Credit ${processedReport.summary.totalCredit.toFixed(2)} + Total Voucher ${processedReport.summary.totalVoucher.toFixed(2)}) - Total Cash ${processedReport.summary.totalCash.toFixed(2)}) ÷ 2 + Total Credit Tips ${processedReport.summary.totalCreditTips.toFixed(2)} + Total Voucher Tips ${processedReport.summary.totalVoucherTips.toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        {/* Owed Driver Highlight */}
+                                        <div className="p-4 rounded-lg bg-accent/50 border-2 border-accent mt-4">
+                                            <div className="flex items-center gap-3">
+                                                <Wallet className="h-6 w-6 text-primary" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm text-muted-foreground font-medium mb-1">Total Owed Driver</p>
+                                                    <p className={`text-3xl font-bold ${processedReport.summary.totalOwedDriver >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                                        {processedReport.summary.totalOwedDriver >= 0 ? '+' : ''}{processedReport.summary.totalOwedDriver.toFixed(2)} USD
+                                                    </p>
                                                 </div>
-                                                {validationResult.isValid && (
-                                                    <div className="mt-2 text-xs text-green-600 dark:text-green-500 flex items-center gap-1">
-                                                        <span>✓</span>
-                                                        <span>Verified against {validationResult.uniquePickupCount} unique pickup records</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>

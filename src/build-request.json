@@ -1,0 +1,78 @@
+{
+  "kind": "build_request",
+  "title": "Fix infinite “Initializing…” spinner by surfacing actor initialization errors and adding retry",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-5",
+      "text": "Update the backend actor initialization flow to never leave authenticated users stuck on an indefinite “Initializing…” UI; if actor creation or `initializeAccessControl()` fails, the UI must transition to a visible error state with clear next actions.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Now it spins on \"initializing\" without completing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When the app is authenticated and actor initialization fails (e.g., the actor query rejects), the screen shows an error state instead of an infinite spinner.",
+        "The error state includes a user-friendly English message indicating the backend connection/initialization failed.",
+        "The error state includes a retry action that re-attempts actor initialization without requiring a full page refresh.",
+        "There is no remaining code path where `ActorInitializationGate` renders the fallback “Initializing...” view indefinitely when initialization has actually errored."
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Enhance `frontend/src/hooks/useActor.ts` to expose explicit actor readiness and error status (e.g., `isLoading`, `isReady`, `isError`, `error`) and provide a real `refetch`/retry mechanism that consumers can call.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Now it spins on \"initializing\" without completing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "`useActor` returns `actor`, `isLoading`, `isReady`, `isError`, and `error` in a way that distinguishes: loading vs success vs error.",
+        "`useActor` exposes a working retry mechanism (e.g., returns `refetch` from the underlying React Query) that triggers a new initialization attempt.",
+        "If actor initialization fails, `error` is non-null and `isError` is true; `actor` remains null and `isReady` is false.",
+        "React Query retry behavior for the actor initialization query is configured to be sensible (finite retries with backoff) so transient failures don’t permanently wedge the app, and persistent failures converge to an error state."
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "text": "Update `frontend/src/hooks/useActorReady.ts` and `frontend/src/components/ActorInitializationGate.tsx` to use the new readiness/error status and display an error Alert UI (with a Retry button) when initialization fails.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Now it spins on \"initializing\" without completing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "`useActorReady` no longer hard-codes `isError = false` and `error = null`; it reflects the real actor query status.",
+        "`ActorInitializationGate` shows a loading UI only while initialization is actually in progress.",
+        "`ActorInitializationGate` shows an error `Alert` (English text) when initialization fails, and includes a Retry button wired to the actor retry mechanism.",
+        "On successful retry, the gate proceeds to render its children without requiring navigation or re-login."
+      ]
+    }
+  ],
+  "constraints": [
+    "Respect the existing single-actor backend architecture; do not introduce additional backend services.",
+    "Do not edit files under `frontend/src/components/ui` or any other paths listed in `frontend.immutablePaths`. Compose existing UI components instead.",
+    "Use English for any user-facing text."
+  ],
+  "nonGoals": [
+    "Do not change the owed-driver calculation behavior as part of this fix (separate known issue/feature).",
+    "Do not add third-party auth providers or non-Internet-Identity authentication.",
+    "Do not add real-time/WebSocket functionality."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
