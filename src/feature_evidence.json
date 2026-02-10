@@ -2,11 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-fix-the-regression-where-selecting-a-pickup-record-in-the-edit-delete-record-flow-causes-the-app-to-render-a-blank-screen-ensure-the-dialog-transitions-to-the-edit-form-reliably-without-throwing-any-runtime-errors",
-      "featureTitle": "Fix the regression where selecting a pickup record in the Edit/Delete Record flow causes the app to render a blank screen; ensure the dialog transitions to the edit form reliably without throwing any runtime errors.",
+      "featureId": "feature-fix-the-edit-delete-record-dialog-layout-so-the-dialog-body-scrolls-correctly-when-the-list-of-pickups-or-the-edit-form-exceeds-the-viewport-height-allowing-users-to-access-and-select-records-near-the-end-of-the-day",
+      "featureTitle": "Fix the Edit/Delete Record dialog layout so the dialog body scrolls correctly when the list of pickups (or the edit form) exceeds the viewport height, allowing users to access and select records near the end of the day.",
       "files": [
-        "frontend/src/components/EditDeleteRecordDialog.tsx",
-        "frontend/src/utils/pickupGuards.ts"
+        "frontend/src/components/EditDeleteRecordDialog.tsx"
       ],
       "components": [
         "authorization@1.0.1",
@@ -19,49 +18,6 @@
       ],
       "testIds": [
         "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-harden-edit-delete-record-ui-rendering-against-malformed-empty-pickup-fields-so-it-cannot-crash-add-defensive-handling-for-time-date-conversions-numeric-formatting-e-g-tofixed-and-any-nullable-optional-fields-on-the-selected-pickup",
-      "featureTitle": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields so it cannot crash: add defensive handling for time/date conversions, numeric formatting (e.g., toFixed), and any nullable/optional fields on the selected pickup.",
-      "files": [
-        "frontend/src/components/EditDeleteRecordDialog.tsx",
-        "frontend/src/components/PickupList.tsx",
-        "frontend/src/utils/numberFormat.ts"
-      ],
-      "components": [
-        "authorization@1.0.1",
-        "blob-storage@2.0.3",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-ensure-the-edit-delete-record-actions-still-work-end-to-end-after-the-regression-fix-saving-an-edited-pickup-updates-successfully-and-returns-the-user-to-the-pickup-list-deleting-removes-the-pickup-and-returns-the-user-to-the-pickup-list-errors-are-surfaced-in-the-dialog-via-existing-toast-messaging-rather-than-a-blank-screen",
-      "featureTitle": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns the user to the pickup list; errors are surfaced in the dialog via existing toast messaging rather than a blank screen.",
-      "files": [
-        "frontend/src/components/EditDeleteRecordDialog.tsx",
-        "frontend/src/utils/errorMessage.ts"
-      ],
-      "components": [
-        "authorization@1.0.1",
-        "blob-storage@2.0.3",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
       ],
       "confidence": "high"
     }

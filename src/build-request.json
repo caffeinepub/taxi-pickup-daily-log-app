@@ -1,74 +1,48 @@
 {
   "kind": "build_request",
-  "title": "Fix blank screen regression when selecting a record to edit/delete",
-  "priority": "high",
+  "title": "Fix Edit/Delete Record dialog so pickup list and form can scroll",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the regression where selecting a pickup record in the Edit/Delete Record flow causes the app to render a blank screen; ensure the dialog transitions to the edit form reliably without throwing any runtime errors.",
+      "text": "Fix the Edit/Delete Record dialog layout so the dialog body scrolls correctly when the list of pickups (or the edit form) exceeds the viewport height, allowing users to access and select records near the end of the day.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-12"
+          "msg-1"
         ],
         "quotes": [
-          "Something broke in the last build, now editing records doesn't work. Once a record is selected a blank screen."
+          "When trying to edit existing record the window that opens does not scroll. If the number of records for the day are more than one screen, I can't access records towards the end of day"
         ]
       },
       "acceptanceCriteria": [
-        "From the Edit/Delete Record dialog, clicking any pickup in the list does not result in a blank screen.",
-        "After selecting a pickup, the edit form renders with the selected pickup’s data populated.",
-        "No uncaught exceptions are thrown in the browser console during record selection and edit-form rendering."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields so it cannot crash: add defensive handling for time/date conversions, numeric formatting (e.g., toFixed), and any nullable/optional fields on the selected pickup.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-12"
-        ],
-        "quotes": [
-          "Once a record is selected a blank screen."
-        ]
-      },
-      "acceptanceCriteria": [
-        "If a pickup has missing/empty fields (e.g., empty time string, unexpected numeric values), the edit screen still renders and shows safe fallbacks instead of crashing.",
-        "Pickup totals displayed in the list and/or edit form never call numeric formatting on undefined/NaN values (no crashes from e.g. toFixed)."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns the user to the pickup list; errors are surfaced in the dialog via existing toast messaging rather than a blank screen.",
-      "target": "both",
-      "source": {
-        "messageIds": [
-          "msg-12"
-        ],
-        "quotes": [
-          "now editing records doesn't work"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Editing a pickup and clicking Save persists changes (via backend updatePickup) and the dialog returns to the pickup list view.",
-        "Deleting a pickup persists deletion (via backend deletePickup) and the dialog returns to the pickup list view.",
-        "On backend or network failure, the app remains usable (no blank screen) and shows an English error toast."
+        "With a day containing enough pickups to exceed one screen height, the pickup list inside the Edit/Delete Record dialog is scrollable and the last pickup can be reached and clicked.",
+        "When editing a pickup, if the edit form exceeds the dialog height, the form content is scrollable and the Save/Delete/Cancel controls remain reachable via scrolling.",
+        "Scrolling works on both desktop and mobile-sized viewports without the page behind the dialog scrolling instead of the dialog content.",
+        "No regression: selecting a pickup still transitions into the edit form without blank screens or runtime errors."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under frontend/src/components/ui (compose existing shadcn components instead).",
-    "Do not edit frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, or frontend/src/main.tsx (immutable paths).",
-    "Backend must remain a single Motoko actor in backend/main.mo; only add a migration file if state schema changes are required (avoid schema changes for this fix if possible)."
+    "Do not modify files under frontend/src/components/ui (shadcn UI components); fix scrolling by adjusting composition/layout in app components (e.g., frontend/src/components/EditDeleteRecordDialog.tsx).",
+    "Keep all user-facing text in English."
   ],
   "nonGoals": [
-    "Adding new features to the record model or introducing new admin flows.",
-    "Changing authentication behavior or Internet Identity integration.",
-    "UI redesign unrelated to fixing the edit-record blank screen regression."
+    "Changing backend data models or pickup query logic.",
+    "Adding new features to the Edit/Delete flow beyond making the existing dialog scroll correctly."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

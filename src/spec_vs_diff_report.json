@@ -1,29 +1,29 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-08T19:52:01.429Z",
-  "summary": "Diff adds defensive utilities for error messaging, number formatting, and pickup timestamp conversions, and updates EditDeleteRecordDialog and PickupList to use them—addressing crash/blank-screen risks from malformed data. However, the diff summary is truncated around the edit/delete action handlers, so it’s not fully verifiable that save/delete flows always return to the pickup list and surface failures via toast as required.",
-  "missing_requirements": [
+  "generatedAt": "2026-02-10T04:29:21.423Z",
+  "summary": "The diff shows changes focused on the EditDeleteRecordDialog and project metadata/summaries. REQ-1 appears addressed (dialog scrolling fix is explicitly claimed in the file summary), but the diff evidence is truncated so detailed verification of the specific layout/scroll mechanics is limited. The modified frontend-file-summaries.txt also describes multiple additional features not requested in the BuildRequest, which appear as potentially hallucinated scope (at least in documentation/summary).",
+  "missing_requirements": [],
+  "hallucinated_features": [
     {
-      "id": "REQ-3",
-      "requirement": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns to the pickup list; errors are surfaced via existing toast messaging rather than a blank screen.",
-      "reason": "EditDeleteRecordDialog.tsx is truncated before the action handlers (save/delete). While hooks/mutations and toast utilities are imported, the diff summary does not show the actual logic that (1) calls updatePickup/deletePickup successfully, (2) transitions the dialog back to the list view after success, and (3) catches backend/network errors to show an English toast while keeping the UI usable.",
+      "description": "Documentation/summary claims addition of a comprehensive GeneratePDFDialog that outputs a full application PDF specification (new feature beyond scrolling fix).",
+      "reason": "BuildRequest explicitly lists as a non-goal: “Adding new features to the Edit/Delete flow beyond making the existing dialog scroll correctly.” The diff summary text describes a substantial new dialog/feature unrelated to the scroll fix; no corresponding request exists in the BuildRequest.",
       "evidence": [
-        "frontend/src/components/EditDeleteRecordDialog.tsx (truncated; handlers not shown)"
+        "frontend-file-summaries.txt (entry for frontend/src/components/GeneratePDFDialog.tsx)"
+      ]
+    },
+    {
+      "description": "Documentation/summary claims multiple other unrelated feature changes (cycle balance dialog, about dialog, extensive query hook updates, customer lookup enhancements, etc.).",
+      "reason": "Only REQ-1 (scrolling fix in Edit/Delete dialog) was requested. The diff summary text asserts additional functionality that is outside the stated scope and non-goals; while code diffs for those files are not shown here, the claims themselves are unrequested changes within the provided diff summary evidence.",
+      "evidence": [
+        "frontend-file-summaries.txt (multiple entries: CycleBalanceDialog.tsx, AboutDialog.tsx, hooks/useQueries.ts, CustomerLookup.tsx, PickupForm.tsx, DailyReportDialog.tsx, etc.)"
       ]
     }
   ],
-  "hallucinated_features": [],
   "confidence": 0.62,
   "changed_files": [
-    "backend/main.mo",
     "frontend-file-summaries.txt",
     "frontend/src/components/EditDeleteRecordDialog.tsx",
-    "frontend/src/components/PickupList.tsx",
-    "frontend/src/pages/MainApp.tsx",
-    "frontend/src/utils/errorMessage.ts",
-    "frontend/src/utils/numberFormat.ts",
-    "frontend/src/utils/pickupGuards.ts",
     "project_state.json"
   ]
 }

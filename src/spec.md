@@ -1,11 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the Edit/Delete Record regression where selecting a pickup to edit/delete causes a blank screen, and make the edit flow resilient to malformed pickup data.
+**Goal:** Make the Edit/Delete Record dialog scroll correctly so users can access pickups and form fields that exceed the viewport height.
 
 **Planned changes:**
-- Identify and fix the runtime error causing a blank screen when a pickup is selected from the Edit/Delete Record list, ensuring the UI reliably transitions to the edit form.
-- Add defensive rendering/formatting in the Edit/Delete Record list and edit form for nullable/empty pickup fields (e.g., date/time parsing, numeric formatting like `toFixed`) so malformed data cannot crash the screen.
-- Verify end-to-end edit/delete behavior remains intact: Save updates via `updatePickup` and returns to the pickup list; Delete removes via `deletePickup` and returns to the pickup list; failures show an English error toast without blanking the UI.
+- Update the Edit/Delete Record dialog layout so the pickup list area scrolls within the dialog when it exceeds the available height.
+- Update the edit form view within the dialog so form content scrolls within the dialog when it exceeds the available height.
+- Ensure scrolling behavior works on desktop and mobile-sized viewports without scrolling the page behind the open dialog.
 
-**User-visible outcome:** Selecting any pickup in the Edit/Delete Record dialog opens a populated edit form without a blank screen; editing and saving or deleting works reliably and returns to the pickup list, with errors shown via toast instead of crashing.
+**User-visible outcome:** Users can scroll within the Edit/Delete Record dialog to reach and select pickups near the end of the day, and can scroll long edit forms to reach Save/Delete/Cancel without the background page scrolling.

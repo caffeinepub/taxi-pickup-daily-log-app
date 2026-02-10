@@ -1,72 +1,22 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Edit/Delete Record blank screen regression and harden pickup rendering",
+  "title": "Make Edit/Delete Record dialog body reliably scrollable for long pickup lists and forms",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Fix the blank screen regression when selecting a pickup in Edit/Delete Record so the edit form always renders without runtime errors.",
+      "summary": "Adjust Edit/Delete Record dialog layout so the pickup list and edit form scroll within the dialog (desktop/mobile) without scrolling the page behind it.",
       "acceptanceCriteria": [
-        "From the Edit/Delete Record dialog, clicking any pickup in the list does not result in a blank screen.",
-        "After selecting a pickup, the edit form renders with the selected pickup’s data populated.",
-        "No uncaught exceptions are thrown in the browser console during record selection and edit-form rendering."
+        "With a day containing enough pickups to exceed one screen height, the pickup list inside the Edit/Delete Record dialog is scrollable and the last pickup can be reached and clicked.",
+        "When editing a pickup, if the edit form exceeds the dialog height, the form content is scrollable and the Save/Delete/Cancel controls remain reachable via scrolling.",
+        "Scrolling works on both desktop and mobile-sized viewports without the page behind the dialog scrolling instead of the dialog content.",
+        "No regression: selecting a pickup still transitions into the edit form without blank screens or runtime errors."
       ],
       "file_operations": [
         {
           "path": "frontend/src/components/EditDeleteRecordDialog.tsx",
           "operation": "modify",
-          "description": "Fix record-selection transition by making all pickup date/time conversions consistent and safe (convert bigint timestamps to Date using the correct unit, and avoid BigInt(NaN) and Invalid Date paths during selection + form initialization)."
-        },
-        {
-          "path": "frontend/src/utils/pickupGuards.ts",
-          "operation": "create",
-          "description": "Add shared defensive helpers for pickup rendering/editing: safe bigint timestamp -> Date conversion, safe time input string derivation, and safe parsing for time input -> timestamp to prevent crashes during dialog transitions."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields (time/date conversions, numeric formatting, nullable fields) so it never crashes and shows safe fallbacks.",
-      "acceptanceCriteria": [
-        "If a pickup has missing/empty fields (e.g., empty time string, unexpected numeric values), the edit screen still renders and shows safe fallbacks instead of crashing.",
-        "Pickup totals displayed in the list and/or edit form never call numeric formatting on undefined/NaN values (no crashes from e.g. toFixed)."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/utils/numberFormat.ts",
-          "operation": "create",
-          "description": "Create numeric formatting helpers (e.g., safeCurrency / safeFixed) that never call toFixed on non-finite values and provide stable UI fallbacks."
-        },
-        {
-          "path": "frontend/src/components/EditDeleteRecordDialog.tsx",
-          "operation": "modify",
-          "description": "Apply defensive rendering and parsing: guard nullable text fields, ensure time parsing handles empty/invalid values, and use safe numeric formatting helpers for any displayed totals to prevent toFixed-related crashes."
-        },
-        {
-          "path": "frontend/src/components/PickupList.tsx",
-          "operation": "modify",
-          "description": "Harden pickup list currency rendering by replacing direct toFixed calls on pickup fields with safe formatting helpers so malformed numeric values cannot crash the list."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Ensure Edit/Delete Record save/delete flows remain reliable end-to-end: after update/delete, return to list; on failure, remain usable and show an English toast error.",
-      "acceptanceCriteria": [
-        "Editing a pickup and clicking Save persists changes (via backend updatePickup) and the dialog returns to the pickup list view.",
-        "Deleting a pickup persists deletion (via backend deletePickup) and the dialog returns to the pickup list view.",
-        "On backend or network failure, the app remains usable (no blank screen) and shows an English error toast."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/EditDeleteRecordDialog.tsx",
-          "operation": "modify",
-          "description": "Ensure save/delete handlers always leave the dialog in a usable state: keep list/edit view state transitions deterministic (only return to list on success), and on errors keep the form rendered while surfacing a readable English toast message (no blank screen)."
-        },
-        {
-          "path": "frontend/src/utils/errorMessage.ts",
-          "operation": "create",
-          "description": "Add a small helper to extract a stable English error message from unknown errors (Error, string, nested objects) to reuse in toasts for update/delete failures."
+          "description": "Fix dialog scrolling by adjusting layout composition (without changing shadcn UI internals): ensure the DialogContent uses a constrained height and a flex column layout with a dedicated scrollable body region that has `min-h-0`, remove/avoid nested conflicting overflow settings, and make the pickup list and edit form scroll areas take the available height so touch/trackpad scrolling stays inside the dialog on mobile/desktop. Use the shadcn-ui Dialog and ScrollArea components as currently imported to support the scrollable dialog body behavior (verify the component's usage instructions before implementing)."
         }
       ]
     }

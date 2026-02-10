@@ -155,7 +155,7 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-                <DialogHeader>
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
                         <img 
                             src="/assets/generated/edit-icon-transparent.dim_32x32.png" 
@@ -169,9 +169,9 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-hidden flex flex-col gap-4">
+                <div className="flex-1 min-h-0 flex flex-col gap-4">
                     {/* Date Selector */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-shrink-0">
                         <Label>Select Date</Label>
                         <Popover>
                             <PopoverTrigger asChild>
@@ -205,8 +205,8 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
 
                     {!isEditing ? (
                         /* Pickup List */
-                        <div className="flex-1 overflow-hidden flex flex-col">
-                            <Label className="mb-2">Pickups on {format(selectedDate, 'PPP')}</Label>
+                        <div className="flex-1 min-h-0 flex flex-col">
+                            <Label className="mb-2 flex-shrink-0">Pickups on {format(selectedDate, 'PPP')}</Label>
                             {isLoading ? (
                                 <div className="flex items-center justify-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -251,9 +251,9 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                         </div>
                     ) : (
                         /* Edit Form */
-                        <div className="flex-1 overflow-y-auto">
-                            <ScrollArea className="h-full pr-4">
-                                <div className="space-y-4">
+                        <div className="flex-1 min-h-0 flex flex-col">
+                            <ScrollArea className="flex-1 pr-4">
+                                <div className="space-y-4 pb-4">
                                     {/* Pickup Date */}
                                     <div className="space-y-2">
                                         <Label>Pickup Date</Label>
@@ -427,50 +427,50 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                                             {safeCurrency(calculatedTotal)}
                                         </div>
                                     </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2 pt-4">
-                                        <Button
-                                            onClick={handleSave}
-                                            disabled={isFormDisabled}
-                                            className="flex-1"
-                                        >
-                                            {updatePickupMutation.isPending ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Saving...
-                                                </>
-                                            ) : (
-                                                'Save Changes'
-                                            )}
-                                        </Button>
-                                        <Button
-                                            onClick={handleDelete}
-                                            disabled={isFormDisabled}
-                                            variant="destructive"
-                                        >
-                                            {deletePickupMutation.isPending ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Deleting...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Delete
-                                                </>
-                                            )}
-                                        </Button>
-                                        <Button
-                                            onClick={handleCancel}
-                                            disabled={isFormDisabled}
-                                            variant="outline"
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
                                 </div>
                             </ScrollArea>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 pt-4 flex-shrink-0 border-t">
+                                <Button
+                                    onClick={handleSave}
+                                    disabled={isFormDisabled}
+                                    className="flex-1"
+                                >
+                                    {updatePickupMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        'Save Changes'
+                                    )}
+                                </Button>
+                                <Button
+                                    onClick={handleDelete}
+                                    disabled={isFormDisabled}
+                                    variant="destructive"
+                                >
+                                    {deletePickupMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete
+                                        </>
+                                    )}
+                                </Button>
+                                <Button
+                                    onClick={handleCancel}
+                                    disabled={isFormDisabled}
+                                    variant="outline"
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
