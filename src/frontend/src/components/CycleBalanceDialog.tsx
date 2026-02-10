@@ -7,9 +7,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2, Activity } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useGetCycleBalance } from '../hooks/useQueries';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CycleBalanceDialogProps {
     open: boolean;
@@ -17,96 +16,78 @@ interface CycleBalanceDialogProps {
 }
 
 export default function CycleBalanceDialog({ open, onOpenChange }: CycleBalanceDialogProps) {
-    const [refreshKey, setRefreshKey] = useState(0);
-    const { data: cycleBalance, isLoading, isError, refetch } = useGetCycleBalance(refreshKey);
+    const { data: balance, isLoading, refetch } = useGetCycleBalance();
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const handleRefresh = () => {
-        setRefreshKey((prev) => prev + 1);
-        refetch();
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await refetch();
+        setIsRefreshing(false);
     };
 
-    const formatCycles = (cycles: bigint | undefined): string => {
-        if (cycles === undefined) return 'N/A';
-        
-        const cyclesNum = Number(cycles);
-        
-        if (cyclesNum >= 1_000_000_000_000) {
-            return `${(cyclesNum / 1_000_000_000_000).toFixed(2)}T cycles`;
-        } else if (cyclesNum >= 1_000_000_000) {
-            return `${(cyclesNum / 1_000_000_000).toFixed(2)}B cycles`;
-        } else if (cyclesNum >= 1_000_000) {
-            return `${(cyclesNum / 1_000_000).toFixed(2)}M cycles`;
-        } else if (cyclesNum >= 1_000) {
-            return `${(cyclesNum / 1_000).toFixed(2)}K cycles`;
-        } else {
-            return `${cyclesNum} cycles`;
-        }
+    const formatBalance = (balance: bigint | undefined) => {
+        if (balance === undefined) return 'N/A';
+        const trillion = BigInt(1_000_000_000_000);
+        const balanceInTrillions = Number(balance) / Number(trillion);
+        return `${balanceInTrillions.toFixed(2)} T`;
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-md bg-card text-card-foreground border border-border shadow-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-primary" />
+                        <img 
+                            src="/assets/generated/cycle-balance-icon-transparent.dim_32x32.png" 
+                            alt="Cycle Balance" 
+                            className="w-6 h-6"
+                        />
                         Cycle Balance
                     </DialogTitle>
                     <DialogDescription>
-                        View the current cycle balance (remaining computational resources) for the canister.
+                        Current canister cycle balance
                     </DialogDescription>
                 </DialogHeader>
-
                 <div className="space-y-4 py-4">
-                    <Alert>
-                        <Activity className="h-4 w-4" />
-                        <AlertDescription>
-                            Cycles are the computational resources used to power this application on the Internet Computer.
-                            The balance shown represents the remaining cycles available for the canister to process requests.
-                        </AlertDescription>
-                    </Alert>
-
-                    <div className="rounded-lg border bg-card p-6">
-                        <div className="text-center space-y-2">
-                            <p className="text-sm text-muted-foreground">Current Balance</p>
-                            {isLoading ? (
-                                <div className="flex items-center justify-center gap-2 py-4">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                    <span className="text-muted-foreground">Loading...</span>
-                                </div>
-                            ) : isError ? (
-                                <div className="py-4">
-                                    <p className="text-destructive font-semibold">Error loading balance</p>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        Unable to fetch cycle balance. Please try again.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="py-2">
-                                    <p className="text-3xl font-bold text-primary">
-                                        {formatCycles(cycleBalance)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                        {cycleBalance !== undefined && `(${cycleBalance.toString()} cycles)`}
-                                    </p>
-                                </div>
-                            )}
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
-                    </div>
-
-                    <div className="flex justify-between items-center gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handleRefresh}
-                            disabled={isLoading}
-                            className="gap-2"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                            Refresh
-                        </Button>
-                        <Button onClick={() => onOpenChange(false)}>
-                            Close
-                        </Button>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="text-center space-y-2">
+                                <p className="text-sm text-muted-foreground">Current Balance</p>
+                                <p className="text-3xl font-bold text-primary">{formatBalance(balance)}</p>
+                                <p className="text-xs text-muted-foreground">cycles</p>
+                            </div>
+                            <div className="text-sm text-muted-foreground space-y-2">
+                                <p>
+                                    Cycles are the computational resources used by your canister on the Internet Computer.
+                                </p>
+                                <p>
+                                    Monitor your balance to ensure your application continues running smoothly.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                className="w-full"
+                                variant="outline"
+                            >
+                                {isRefreshing ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Refreshing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        Refresh Balance
+                                    </>
+                                )}
+                            </Button>
+                        </>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>

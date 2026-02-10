@@ -1,30 +1,19 @@
-import { useActor } from './useActor';
+import { useBackendActor } from './useBackendActor';
 
 /**
  * Extended hook that provides actor readiness state
- * Wraps the base useActor hook with additional computed states
+ * Now wraps the new BackendActorProvider instead of the immutable useActor
  */
 export function useActorReady() {
-    const { actor, isFetching } = useActor();
-    
-    // Compute derived states from the base hook
-    const isLoading = isFetching && !actor;
-    const isReady = !!actor && !isFetching;
-    const isError = false; // Base hook doesn't expose errors yet
-    const error = null;
-    
-    const refetch = () => {
-        // Trigger refetch by clearing and reloading
-        window.location.reload();
-    };
-    
-    return {
-        actor,
-        isFetching,
-        isLoading,
-        isReady,
-        isError,
-        error,
-        refetch,
-    };
+  const { actor, isLoading, isReady, isError, error, refetch } = useBackendActor();
+
+  return {
+    actor,
+    isFetching: isLoading,
+    isLoading,
+    isReady,
+    isError,
+    error,
+    refetch,
+  };
 }

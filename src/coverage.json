@@ -1,35 +1,76 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-10T04:29:21.425Z",
+  "generatedAt": "2026-02-10T16:20:29.694Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Fix the Edit/Delete Record dialog layout so the dialog body scrolls correctly when the list of pickups (or the edit form) exceeds the viewport height, allowing users to access and select records near the end of the day.",
+        "summary": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/EditDeleteRecordDialog.tsx"
+          "frontend/src/hooks/useBackendActor.tsx",
+          "frontend/src/utils/retryBackoff.ts",
+          "frontend/src/hooks/useActorReady.ts",
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/EditDeleteRecordDialog.tsx"
+          "frontend/src/hooks/useBackendActor.tsx",
+          "frontend/src/utils/retryBackoff.ts",
+          "frontend/src/hooks/useActorReady.ts",
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useBackendActor.tsx",
+          "frontend/src/components/ActorInitializationGate.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useBackendActor.tsx",
+          "frontend/src/components/ActorInitializationGate.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/ActorInitializationGate.tsx",
+          "frontend/src/utils/connectionDiagnostics.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/ActorInitializationGate.tsx",
+          "frontend/src/utils/connectionDiagnostics.ts"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
-    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/EditDeleteRecordDialog.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/ActorInitializationGate.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useActorReady.ts",
+    "frontend/src/hooks/useBackendActor.tsx",
+    "frontend/src/utils/connectionDiagnostics.ts",
+    "frontend/src/utils/retryBackoff.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

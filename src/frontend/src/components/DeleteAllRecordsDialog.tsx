@@ -1,18 +1,16 @@
-import { useState } from 'react';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useDeleteAllRecords } from '../hooks/useQueries';
-import { useActorReady } from '../hooks/useActorReady';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useActorReady } from '../hooks/useActorReady';
 
 interface DeleteAllRecordsDialogProps {
     open: boolean;
@@ -20,58 +18,60 @@ interface DeleteAllRecordsDialogProps {
 }
 
 export default function DeleteAllRecordsDialog({ open, onOpenChange }: DeleteAllRecordsDialogProps) {
-    const deleteAllRecords = useDeleteAllRecords();
+    const deleteAllMutation = useDeleteAllRecords();
     const { isReady } = useActorReady();
-    const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleConfirmDelete = async () => {
-        setIsDeleting(true);
+    const handleDelete = async () => {
         try {
-            await deleteAllRecords.mutateAsync();
+            await deleteAllMutation.mutateAsync();
             toast.success('All records deleted successfully');
             onOpenChange(false);
-        } catch (error) {
-            console.error('Error deleting records:', error);
-            toast.error('Failed to delete records. Please try again.');
-        } finally {
-            setIsDeleting(false);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to delete records');
         }
     };
 
-    const isDisabled = isDeleting || !isReady;
-
     return (
-        <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete All Records?</AlertDialogTitle>
-                    <AlertDialogDescription>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md bg-card text-card-foreground border border-border shadow-lg">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-destructive">
+                        <Trash2 className="h-6 w-6" />
+                        Delete All Records
+                    </DialogTitle>
+                    <DialogDescription>
                         This action cannot be undone. This will permanently delete all your pickup records and customer data.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDisabled}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={handleConfirmDelete}
-                        disabled={isDisabled}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={deleteAllMutation.isPending}
                     >
-                        {isDeleting ? (
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={deleteAllMutation.isPending || !isReady}
+                    >
+                        {deleteAllMutation.isPending ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Deleting...
                             </>
                         ) : !isReady ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Connecting...
-                            </>
+                            'Connecting...'
                         ) : (
-                            'Delete All'
+                            <>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete All Records
+                            </>
                         )}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

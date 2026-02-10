@@ -92,6 +92,10 @@ export interface backendInterface {
     getPickupById(pickupId: bigint): Promise<Pickup | null>;
     getPickupsForDate(selectedDate: bigint): Promise<Array<Pickup>>;
     getPickupsInRange(fromDate: bigint, toDate: bigint): Promise<Array<Pickup>>;
+    getStatus(): Promise<{
+        status: string;
+        timestamp: bigint;
+    }>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     hasProfile(): Promise<boolean>;
     importData(data: ExportData): Promise<void>;

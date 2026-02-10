@@ -147,6 +147,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(Pickup)],
       ['query'],
     ),
+  'getStatus' : IDL.Func(
+      [],
+      [IDL.Record({ 'status' : IDL.Text, 'timestamp' : IDL.Int })],
+      ['query'],
+    ),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -335,6 +340,11 @@ export const idlFactory = ({ IDL }) => {
     'getPickupsInRange' : IDL.Func(
         [IDL.Int, IDL.Int],
         [IDL.Vec(Pickup)],
+        ['query'],
+      ),
+    'getStatus' : IDL.Func(
+        [],
+        [IDL.Record({ 'status' : IDL.Text, 'timestamp' : IDL.Int })],
         ['query'],
       ),
     'getUserProfile' : IDL.Func(

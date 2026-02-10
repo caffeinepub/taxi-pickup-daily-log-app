@@ -17,23 +17,22 @@ export default function MainApp() {
                         <section>
                             <div className="mb-6">
                                 <h2 className="text-3xl font-bold tracking-tight mb-2">Record New Pickup</h2>
-                                <p className="text-muted-foreground text-lg">
-                                    Log your passenger details and trip information
-                                </p>
+                                <p className="text-muted-foreground">Log your passenger details and trip information</p>
                             </div>
-                            <PickupForm 
-                                selectedDate={selectedDate}
-                                onDateChange={setSelectedDate}
-                            />
+                            <div className="bg-card rounded-lg border p-6 shadow-sm">
+                                <PickupForm
+                                    selectedDate={selectedDate}
+                                    onPickupRecorded={() => {}}
+                                />
+                            </div>
                         </section>
+
                         <section>
                             <div className="mb-6">
                                 <h2 className="text-3xl font-bold tracking-tight mb-2">
                                     Pickups for {format(selectedDate, 'MMMM d, yyyy')}
                                 </h2>
-                                <p className="text-muted-foreground text-lg">
-                                    View all recorded trips for the selected date
-                                </p>
+                                <p className="text-muted-foreground">View and manage today's recorded pickups</p>
                             </div>
                             <PickupList selectedDate={selectedDate} />
                         </section>

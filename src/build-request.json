@@ -1,48 +1,77 @@
 {
   "kind": "build_request",
-  "title": "Fix Edit/Delete Record dialog so pickup list and form can scroll",
-  "priority": "normal",
+  "title": "Fix repeated backend connection failures after deployments",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the Edit/Delete Record dialog layout so the dialog body scrolls correctly when the list of pickups (or the edit form) exceeds the viewport height, allowing users to access and select records near the end of the day.",
+      "text": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-user-1"
         ],
         "quotes": [
-          "When trying to edit existing record the window that opens does not scroll. If the number of records for the day are more than one screen, I can't access records towards the end of day"
+          "But every build causes connection error. See photo."
         ]
       },
       "acceptanceCriteria": [
-        "With a day containing enough pickups to exceed one screen height, the pickup list inside the Edit/Delete Record dialog is scrollable and the last pickup can be reached and clicked.",
-        "When editing a pickup, if the edit form exceeds the dialog height, the form content is scrollable and the Save/Delete/Cancel controls remain reachable via scrolling.",
-        "Scrolling works on both desktop and mobile-sized viewports without the page behind the dialog scrolling instead of the dialog content.",
-        "No regression: selecting a pickup still transitions into the edit form without blank screens or runtime errors."
+        "When backend calls fail during actor creation/initialization, the app does not silently fall through to the generic 'Connection Failed' state without details; the underlying error message is available to the gate.",
+        "Actor initialization automatically retries (finite attempts) with backoff before showing the error state.",
+        "The 'Retry Connection' action triggers a refetch/retry of actor initialization without requiring window.location.reload().",
+        "If retries eventually succeed, the app proceeds to the authenticated flow without requiring the user to re-login."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-user-1"
+        ],
+        "quotes": [
+          "But every build causes connection error. See photo."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Backend exposes a new query method that can be called anonymously and returns quickly without side effects.",
+        "Frontend calls the health method as part of the connection/initialization path and uses it to determine whether the canister is reachable.",
+        "If the health call succeeds but initialization still fails, the UI indicates this is not a general connectivity outage (i.e., it is a different error)."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-user-1"
+        ],
+        "quotes": [
+          "Connection Failed",
+          "Unable to connect to the backend. This could be due to a network issue or the backend service being temporarily unavailable."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The error state shows a readable error message derived via the existing error-message utility (or equivalent) rather than only generic text.",
+        "If navigator.onLine is false, the UI explicitly tells the user they appear offline.",
+        "The error screen provides three distinct recovery actions: Retry (refetch), Logout & Retry (clear II state then refetch), and Hard refresh (cache-busting reload).",
+        "All user-facing text on the error screen is English."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/components/ui (shadcn UI components); fix scrolling by adjusting composition/layout in app components (e.g., frontend/src/components/EditDeleteRecordDialog.tsx).",
-    "Keep all user-facing text in English."
+    "Respect the single-actor backend architecture: all Motoko logic stays in backend/main.mo.",
+    "Do not edit files under frontend immutablePaths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui). Compose or add new modules/components instead where needed."
   ],
   "nonGoals": [
-    "Changing backend data models or pickup query logic.",
-    "Adding new features to the Edit/Delete flow beyond making the existing dialog scroll correctly."
+    "Adding WebSockets or any real-time connection layer.",
+    "Integrating third-party monitoring/analytics services.",
+    "Changing authentication provider (must remain Internet Identity)."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

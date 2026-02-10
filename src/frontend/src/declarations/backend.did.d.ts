@@ -117,6 +117,7 @@ export interface _SERVICE {
   'getPickupById' : ActorMethod<[bigint], [] | [Pickup]>,
   'getPickupsForDate' : ActorMethod<[bigint], Array<Pickup>>,
   'getPickupsInRange' : ActorMethod<[bigint, bigint], Array<Pickup>>,
+  'getStatus' : ActorMethod<[], { 'status' : string, 'timestamp' : bigint }>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'hasProfile' : ActorMethod<[], boolean>,
   'importData' : ActorMethod<[ExportData], undefined>,

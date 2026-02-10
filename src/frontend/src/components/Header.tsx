@@ -35,10 +35,21 @@ export default function Header() {
     const [showAboutDialog, setShowAboutDialog] = useState(false);
     const [showExportImportDialog, setShowExportImportDialog] = useState(false);
     const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
+    
+    // Controlled state for hamburger menu
+    const [hamburgerOpen, setHamburgerOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
 
     const handleLogout = async () => {
         queryClient.clear();
         await clear();
+    };
+
+    // Helper to close hamburger and open dialog
+    const openDialog = (setDialogOpen: (open: boolean) => void) => {
+        setHamburgerOpen(false);
+        // Small delay to ensure dropdown closes before dialog opens
+        setTimeout(() => setDialogOpen(true), 50);
     };
 
     return (
@@ -57,54 +68,63 @@ export default function Header() {
                         </div>
                         <div className="flex items-center gap-2">
                             {identity && (
-                                <DropdownMenu>
+                                <DropdownMenu 
+                                    open={hamburgerOpen} 
+                                    onOpenChange={setHamburgerOpen}
+                                    modal={false}
+                                >
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon">
                                             <Menu className="h-5 w-5" />
                                             <span className="sr-only">Menu</span>
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-56">
-                                        <DropdownMenuItem onClick={() => setShowDailyReport(true)}>
+                                    <DropdownMenuContent 
+                                        align="end" 
+                                        className="w-56 bg-popover text-popover-foreground border border-border shadow-lg"
+                                        sideOffset={8}
+                                        collisionPadding={16}
+                                    >
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowDailyReport)}>
                                             <FileText className="mr-2 h-4 w-4" />
                                             <span>Daily Report</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setShowEditDeleteDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowEditDeleteDialog)}>
                                             <Edit className="mr-2 h-4 w-4" />
                                             <span>Edit/Delete Record</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setShowPDFDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowPDFDialog)}>
                                             <FileDown className="mr-2 h-4 w-4" />
                                             <span>Generate PDF Report</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setShowCycleBalanceDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowCycleBalanceDialog)}>
                                             <Activity className="mr-2 h-4 w-4" />
                                             <span>Cycle Balance</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setShowExportImportDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowExportImportDialog)}>
                                             <Download className="mr-2 h-4 w-4" />
                                             <span>Export/Import Data</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setShowEditProfileDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowEditProfileDialog)}>
                                             <UserCog className="mr-2 h-4 w-4" />
                                             <span>Edit Profile</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem 
-                                            onClick={() => setShowDeleteDialog(true)}
+                                            onSelect={() => openDialog(setShowDeleteDialog)}
                                             className="text-destructive focus:text-destructive"
                                         >
                                             <Trash2 className="mr-2 h-4 w-4" />
                                             <span>Delete All Records</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setShowAboutDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => openDialog(setShowAboutDialog)}>
                                             <Info className="mr-2 h-4 w-4" />
                                             <span>About</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={handleLogout}>
+                                        <DropdownMenuItem onSelect={handleLogout}>
                                             <img 
                                                 src="/assets/generated/logout-icon-transparent.dim_32x32.png" 
                                                 alt="Logout" 
@@ -127,14 +147,23 @@ export default function Header() {
                             </Button>
 
                             {identity && (
-                                <DropdownMenu>
+                                <DropdownMenu 
+                                    open={userMenuOpen} 
+                                    onOpenChange={setUserMenuOpen}
+                                    modal={false}
+                                >
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon">
                                             <User className="h-5 w-5" />
                                             <span className="sr-only">User menu</span>
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuContent 
+                                        align="end" 
+                                        className="w-56 bg-popover text-popover-foreground border border-border shadow-lg"
+                                        sideOffset={8}
+                                        collisionPadding={16}
+                                    >
                                         <DropdownMenuLabel>
                                             <div className="flex flex-col space-y-1">
                                                 <p className="text-sm font-medium leading-none">
@@ -151,12 +180,15 @@ export default function Header() {
                                             </div>
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setShowEditProfileDialog(true)}>
+                                        <DropdownMenuItem onSelect={() => {
+                                            setUserMenuOpen(false);
+                                            setTimeout(() => setShowEditProfileDialog(true), 50);
+                                        }}>
                                             <UserCog className="mr-2 h-4 w-4" />
                                             <span>Edit Profile</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={handleLogout}>
+                                        <DropdownMenuItem onSelect={handleLogout}>
                                             <LogOut className="mr-2 h-4 w-4" />
                                             <span>Log Out</span>
                                         </DropdownMenuItem>

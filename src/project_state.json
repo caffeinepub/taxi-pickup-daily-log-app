@@ -4,21 +4,37 @@
   "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "Edit existing record window does not scroll; when a day's records exceed one screen, records near end of day are inaccessible."
+    "Connection error occurs on every build (user reported; has photo)."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-fix-the-edit-delete-record-dialog-layout-so-the-dialog-body-scrolls-correctly-when-the-list-of-pickups-or-the-edit-form-exceeds-the-viewport-height-allowing-users-to-access-and-select-records-near-the-end-of-the-day",
-      "title": "Fix the Edit/Delete Record dialog layout so the dialog body scrolls correctly when the list of pickups (or the edit form) exceeds the viewport height, allowing users to access and select records near the end of the day.",
+      "id": "feature-expose-actor-initialization-failures-to-the-ui-and-add-robust-retry-behavior-so-the-app-can-recover-from-transient-backend-unavailability-especially-right-after-a-new-build-deploy-update-the-actor-initialization-logic-to-1-surface-the-underlying-error-and-message-2-retry-with-exponential-backoff-for-a-finite-number-of-attempts-and-3-allow-an-explicit-user-triggered-retry-without-requiring-a-full-page-reload",
+      "title": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
       "reqIds": [
         "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-lightweight-backend-health-endpoint-to-distinguish-backend-down-unreachable-from-other-initialization-errors-implement-a-public-query-method-e-g-ping-getstatus-that-returns-a-small-stable-payload-e-g-ok-and-or-a-timestamp-use-this-method-from-the-frontend-during-actor-initialization-to-verify-backend-reachability-before-or-while-running-initializeaccesscontrol-and-use-the-result-to-improve-the-error-message-shown-to-the-user",
+      "title": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-improve-the-connection-failed-screen-to-show-actionable-diagnostic-details-and-recovery-options-for-post-deploy-scenarios-include-1-the-extracted-error-message-sanitized-to-a-stable-english-string-2-a-clear-hint-when-the-browser-is-offline-and-3-an-additional-hard-refresh-option-that-forces-a-cache-busting-reload-for-cases-where-a-stale-frontend-bundle-is-incompatible-with-the-newly-deployed-backend",
+      "title": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
+      "reqIds": [
+        "REQ-3"
       ],
       "version": 1
     }
   ],
   "new_feature_requests": [],
-  "projectName": "Fix Edit/Delete Record dialog so pickup list and form can scroll",
+  "projectName": "Fix repeated backend connection failures after deployments",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

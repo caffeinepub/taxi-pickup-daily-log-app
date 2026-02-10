@@ -191,6 +191,10 @@ export interface backendInterface {
     getPickupById(pickupId: bigint): Promise<Pickup | null>;
     getPickupsForDate(selectedDate: bigint): Promise<Array<Pickup>>;
     getPickupsInRange(fromDate: bigint, toDate: bigint): Promise<Array<Pickup>>;
+    getStatus(): Promise<{
+        status: string;
+        timestamp: bigint;
+    }>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     hasProfile(): Promise<boolean>;
     importData(data: ExportData): Promise<void>;
@@ -482,6 +486,23 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getPickupsInRange(arg0, arg1);
             return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getStatus(): Promise<{
+        status: string;
+        timestamp: bigint;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStatus();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStatus();
+            return result;
         }
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {

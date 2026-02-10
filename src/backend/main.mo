@@ -9,6 +9,7 @@ import Float "mo:base/Float";
 import List "mo:base/List";
 import Nat "mo:base/Nat";
 import Cycles "mo:base/ExperimentalCycles";
+import Time "mo:base/Time";
 
 import AccessControl "authorization/access-control";
 import MixinStorage "blob-storage/Mixin";
@@ -739,5 +740,14 @@ actor TaxiLog {
     };
   };
 
-};
+  public query func getStatus() : async {
+    status : Text;
+    timestamp : Int;
+  } {
+    {
+      status = "ok";
+      timestamp = Time.now();
+    };
+  };
 
+};
