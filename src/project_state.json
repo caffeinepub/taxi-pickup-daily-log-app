@@ -1,75 +1,40 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 7,
+  "projectStateVersion": 3,
   "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "JSON export/delete/import round-trip results in incorrect calculations (e.g., total owed to driver should be $85 but is wrong).",
-    "App/build shows runtime error: \"Actor not initialized\" (user requesting fix).",
-    "App stuck spinning on \"initializing\" indefinitely (actor readiness never completes)."
+    "Regression in last build: editing records no longer works; selecting a record shows a blank screen."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-update-the-owed-driver-calculation-shown-in-the-daily-totals-ui-to-include-voucher-paid-tips-matching-the-report-backend-formula-credit-meter-voucher-meter-cash-meter-2-credit-tips-voucher-tips",
-      "title": "Update the \"Owed Driver\" calculation shown in the daily totals UI to include voucher-paid tips, matching the report/backend formula: ((credit meter + voucher meter − cash meter) / 2) + credit tips + voucher tips.",
+      "id": "feature-fix-the-regression-where-selecting-a-pickup-record-in-the-edit-delete-record-flow-causes-the-app-to-render-a-blank-screen-ensure-the-dialog-transitions-to-the-edit-form-reliably-without-throwing-any-runtime-errors",
+      "title": "Fix the regression where selecting a pickup record in the Edit/Delete Record flow causes the app to render a blank screen; ensure the dialog transitions to the edit form reliably without throwing any runtime errors.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-prevent-the-app-from-routing-an-authenticated-user-into-account-setup-or-main-app-until-the-backend-actor-has-finished-initializing-or-has-failed-with-a-visible-error-state-so-that-no-page-can-trigger-mutations-while-actor-is-null",
-      "title": "Prevent the app from routing an authenticated user into Account Setup or Main App until the backend actor has finished initializing (or has failed with a visible error state), so that no page can trigger mutations while `actor` is null.",
+      "id": "feature-harden-edit-delete-record-ui-rendering-against-malformed-empty-pickup-fields-so-it-cannot-crash-add-defensive-handling-for-time-date-conversions-numeric-formatting-e-g-tofixed-and-any-nullable-optional-fields-on-the-selected-pickup",
+      "title": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields so it cannot crash: add defensive handling for time/date conversions, numeric formatting (e.g., toFixed), and any nullable/optional fields on the selected pickup.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-update-useactor-to-expose-an-explicit-reliable-actor-readiness-and-error-status-e-g-isloading-isready-error-that-consumers-can-use-to-gate-queries-and-ui-and-ensure-react-query-s-actor-query-has-sensible-retry-behavior-for-transient-initialization-failures",
-      "title": "Update `useActor` to expose an explicit, reliable actor readiness and error status (e.g., `isLoading`/`isReady`/`error`) that consumers can use to gate queries and UI, and ensure React Query’s actor query has sensible retry behavior for transient initialization failures.",
+      "id": "feature-ensure-the-edit-delete-record-actions-still-work-end-to-end-after-the-regression-fix-saving-an-edited-pickup-updates-successfully-and-returns-the-user-to-the-pickup-list-deleting-removes-the-pickup-and-returns-the-user-to-the-pickup-list-errors-are-surfaced-in-the-dialog-via-existing-toast-messaging-rather-than-a-blank-screen",
+      "title": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns the user to the pickup list; errors are surfaced in the dialog via existing toast messaging rather than a blank screen.",
       "reqIds": [
         "REQ-3"
       ],
       "version": 1
-    },
-    {
-      "id": "feature-ensure-all-mutations-that-currently-throw-error-actor-not-initialized-are-unreachable-from-the-ui-while-the-actor-is-not-ready-and-replace-any-remaining-occurrences-with-a-consistent-user-friendly-english-message-if-the-condition-is-ever-hit-as-a-defensive-fallback",
-      "title": "Ensure all mutations that currently throw `Error('Actor not initialized')` are unreachable from the UI while the actor is not ready, and replace any remaining occurrences with a consistent, user-friendly English message if the condition is ever hit (as a defensive fallback).",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-the-backend-actor-initialization-flow-to-never-leave-authenticated-users-stuck-on-an-indefinite-initializing-ui-if-actor-creation-or-initializeaccesscontrol-fails-the-ui-must-transition-to-a-visible-error-state-with-clear-next-actions",
-      "title": "Update the backend actor initialization flow to never leave authenticated users stuck on an indefinite “Initializing…” UI; if actor creation or `initializeAccessControl()` fails, the UI must transition to a visible error state with clear next actions.",
-      "reqIds": [
-        "REQ-5"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-frontend-src-hooks-useactorready-ts-and-frontend-src-components-actorinitializationgate-tsx-to-use-the-new-readiness-error-status-and-display-an-error-alert-ui-with-a-retry-button-when-initialization-fails",
-      "title": "Update `frontend/src/hooks/useActorReady.ts` and `frontend/src/components/ActorInitializationGate.tsx` to use the new readiness/error status and display an error Alert UI (with a Retry button) when initialization fails.",
-      "reqIds": [
-        "REQ-7"
-      ],
-      "version": 1
     }
   ],
-  "new_feature_requests": [
-    {
-      "id": "AR-2",
-      "summary": "Enhance `frontend/src/hooks/useActor.ts` to expose explicit actor readiness and error status (e.g., `isLoading`, `isReady`, `isError`, `error`) and provide a real `refetch`/retry mechanism that consumers can call.",
-      "reqIds": [
-        "REQ-6"
-      ],
-      "status": "pending"
-    }
-  ],
-  "projectName": "Fix Owed Driver total after JSON export/import round-trip",
+  "new_feature_requests": [],
+  "projectName": "Fix blank screen regression when selecting a record to edit/delete",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

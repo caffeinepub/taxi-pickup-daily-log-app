@@ -1,12 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Prevent authenticated users from getting stuck on an infinite “Initializing…” spinner by surfacing actor initialization errors and providing an in-app retry.
+**Goal:** Fix the Edit/Delete Record regression where selecting a pickup to edit/delete causes a blank screen, and make the edit flow resilient to malformed pickup data.
 
 **Planned changes:**
-- Update `frontend/src/hooks/useActor.ts` to expose explicit actor status (`isLoading`, `isReady`, `isError`, `error`) and a callable retry/refetch mechanism.
-- Configure sensible, finite React Query retry behavior for actor initialization so transient failures retry and persistent failures converge to an error state.
-- Update `frontend/src/hooks/useActorReady.ts` to reflect real loading/error state (remove hard-coded non-error values).
-- Update `frontend/src/components/ActorInitializationGate.tsx` to show loading only while initializing, and to render an error Alert with English text and a Retry button when initialization fails; on successful retry, render children without refresh/re-login.
+- Identify and fix the runtime error causing a blank screen when a pickup is selected from the Edit/Delete Record list, ensuring the UI reliably transitions to the edit form.
+- Add defensive rendering/formatting in the Edit/Delete Record list and edit form for nullable/empty pickup fields (e.g., date/time parsing, numeric formatting like `toFixed`) so malformed data cannot crash the screen.
+- Verify end-to-end edit/delete behavior remains intact: Save updates via `updatePickup` and returns to the pickup list; Delete removes via `deletePickup` and returns to the pickup list; failures show an English error toast without blanking the UI.
 
-**User-visible outcome:** If backend/actor initialization fails after login, users see a clear error message and can retry initialization from the same screen instead of being stuck on “Initializing…”.
+**User-visible outcome:** Selecting any pickup in the Edit/Delete Record dialog opens a populated edit form without a blank screen; editing and saving or deleting works reliably and returns to the pickup list, with errors shown via toast instead of crashing.

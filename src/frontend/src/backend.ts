@@ -196,7 +196,7 @@ export interface backendInterface {
     importData(data: ExportData): Promise<void>;
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
-    recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<void>;
+    recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<bigint>;
     requireProfile(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updatePickup(pickupId: bigint, pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<void>;
@@ -554,7 +554,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async recordPickup(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: bigint, arg6: string, arg7: number, arg8: PaymentMethod, arg9: number, arg10: PaymentMethod): Promise<void> {
+    async recordPickup(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: bigint, arg6: string, arg7: number, arg8: PaymentMethod, arg9: number, arg10: PaymentMethod): Promise<bigint> {
         if (this.processError) {
             try {
                 const result = await this.actor.recordPickup(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, to_candid_PaymentMethod_n33(this._uploadFile, this._downloadFile, arg8), arg9, to_candid_PaymentMethod_n33(this._uploadFile, this._downloadFile, arg10));

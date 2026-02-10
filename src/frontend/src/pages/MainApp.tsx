@@ -8,20 +8,6 @@ import { format } from 'date-fns';
 export default function MainApp() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-    // Convert date to timestamp range for backend (start and end of day in nanoseconds)
-    const getDateRange = (date: Date): { fromDate: bigint; toDate: bigint } => {
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
-        return {
-            fromDate: BigInt(startOfDay.getTime()) * BigInt(1000000),
-            toDate: BigInt(endOfDay.getTime()) * BigInt(1000000),
-        };
-    };
-
-    const { fromDate, toDate } = getDateRange(selectedDate);
-
     return (
         <>
             <Header />
@@ -49,7 +35,7 @@ export default function MainApp() {
                                     View all recorded trips for the selected date
                                 </p>
                             </div>
-                            <PickupList fromDate={fromDate} toDate={toDate} />
+                            <PickupList selectedDate={selectedDate} />
                         </section>
                     </div>
                 </div>

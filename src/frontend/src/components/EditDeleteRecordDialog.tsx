@@ -21,6 +21,9 @@ import { cn } from '@/lib/utils';
 import { useGetPickupsForDate, useUpdatePickup, useDeletePickup } from '../hooks/useQueries';
 import { useActorReady } from '../hooks/useActorReady';
 import type { Pickup, PaymentMethod } from '../backend';
+import { nanosToDate, nanosToTimeString, timeStringToNanos, dateToNanos } from '../utils/pickupGuards';
+import { safeCurrency, safeParseFloat } from '../utils/numberFormat';
+import { getErrorMessage } from '../utils/errorMessage';
 
 interface EditDeleteRecordDialogProps {
     open: boolean;
@@ -61,22 +64,22 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
 
     useEffect(() => {
         if (selectedPickup) {
-            const pickupDateObj = new Date(Number(selectedPickup.pickupDate));
+            // Use safe conversion utilities
+            const pickupDateObj = nanosToDate(selectedPickup.pickupDate);
             setPickupDate(pickupDateObj);
-            setStreetAddress(selectedPickup.streetAddress);
-            setCity(selectedPickup.city);
-            setCustomerName(selectedPickup.customerName);
-            setPhoneNumber(selectedPickup.phoneNumber);
+            setStreetAddress(selectedPickup.streetAddress || '');
+            setCity(selectedPickup.city || '');
+            setCustomerName(selectedPickup.customerName || '');
+            setPhoneNumber(selectedPickup.phoneNumber || '');
 
-            const pickupTimeObj = new Date(Number(selectedPickup.pickupTime));
-            const hours = String(pickupTimeObj.getHours()).padStart(2, '0');
-            const minutes = String(pickupTimeObj.getMinutes()).padStart(2, '0');
-            setPickupTime(`${hours}:${minutes}`);
+            // Safe time string extraction
+            const timeStr = nanosToTimeString(selectedPickup.pickupTime);
+            setPickupTime(timeStr);
 
-            setDestinationAddress(selectedPickup.destinationAddress);
-            setMeterTotal(selectedPickup.meterTotal.toString());
+            setDestinationAddress(selectedPickup.destinationAddress || '');
+            setMeterTotal(selectedPickup.meterTotal?.toString() || '0');
             setMeterPaymentMethod(selectedPickup.meterPaymentMethod);
-            setTip(selectedPickup.tip.toString());
+            setTip(selectedPickup.tip?.toString() || '0');
             setTipPaymentMethod(selectedPickup.tipPaymentMethod);
         }
     }, [selectedPickup]);
@@ -92,12 +95,10 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
         try {
             const pickupDateCopy = new Date(pickupDate);
             pickupDateCopy.setHours(0, 0, 0, 0);
-            const pickupDateTimestamp = BigInt(pickupDateCopy.getTime()) * BigInt(1000000);
+            const pickupDateTimestamp = dateToNanos(pickupDateCopy);
 
-            const [hours, minutes] = pickupTime.split(':').map(Number);
-            const pickupDateTime = new Date(pickupDate);
-            pickupDateTime.setHours(hours, minutes, 0, 0);
-            const pickupTimeTimestamp = BigInt(pickupDateTime.getTime()) * BigInt(1000000);
+            // Safe time parsing
+            const pickupTimeTimestamp = timeStringToNanos(pickupTime, pickupDate);
 
             await updatePickupMutation.mutateAsync({
                 pickupId: selectedPickup.id,
@@ -108,9 +109,9 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                 phoneNumber: phoneNumber.trim(),
                 pickupTime: pickupTimeTimestamp,
                 destinationAddress: destinationAddress.trim(),
-                meterTotal: parseFloat(meterTotal) || 0,
+                meterTotal: safeParseFloat(meterTotal),
                 meterPaymentMethod,
-                tip: parseFloat(tip) || 0,
+                tip: safeParseFloat(tip),
                 tipPaymentMethod,
             });
 
@@ -118,7 +119,8 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
             setIsEditing(false);
             setSelectedPickup(null);
         } catch (error) {
-            toast.error('Failed to update pickup');
+            const errorMsg = getErrorMessage(error);
+            toast.error(`Failed to update pickup: ${errorMsg}`);
             console.error('Error updating pickup:', error);
         }
     };
@@ -132,7 +134,8 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
             setIsEditing(false);
             setSelectedPickup(null);
         } catch (error) {
-            toast.error('Failed to delete pickup');
+            const errorMsg = getErrorMessage(error);
+            toast.error(`Failed to delete pickup: ${errorMsg}`);
             console.error('Error deleting pickup:', error);
         }
     };
@@ -143,11 +146,10 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
     };
 
     const formatTime = (timestamp: bigint): string => {
-        const date = new Date(Number(timestamp));
-        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        return nanosToTimeString(timestamp);
     };
 
-    const calculatedTotal = (parseFloat(meterTotal) || 0) + (parseFloat(tip) || 0);
+    const calculatedTotal = safeParseFloat(meterTotal) + safeParseFloat(tip);
     const isFormDisabled = updatePickupMutation.isPending || deletePickupMutation.isPending || !isReady;
 
     return (
@@ -238,7 +240,7 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                                                         {pickup.customerName || 'No customer name'} → {pickup.destinationAddress}
                                                     </div>
                                                     <div className="text-sm font-medium">
-                                                        Total: ${pickup.calculatedTotal.toFixed(2)}
+                                                        Total: {safeCurrency(pickup.calculatedTotal)}
                                                     </div>
                                                 </div>
                                             </Button>
@@ -416,80 +418,59 @@ export default function EditDeleteRecordDialog({ open, onOpenChange }: EditDelet
                                         </Select>
                                     </div>
 
+                                    <Separator />
+
                                     {/* Calculated Total */}
-                                    <div className="rounded-lg bg-muted/50 p-4 border">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-semibold">Calculated Total:</span>
-                                            <span className="text-xl font-bold text-primary">
-                                                ${calculatedTotal.toFixed(2)}
-                                            </span>
+                                    <div className="space-y-2">
+                                        <Label>Calculated Total</Label>
+                                        <div className="text-2xl font-bold text-primary">
+                                            {safeCurrency(calculatedTotal)}
                                         </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-2 pt-4">
+                                        <Button
+                                            onClick={handleSave}
+                                            disabled={isFormDisabled}
+                                            className="flex-1"
+                                        >
+                                            {updatePickupMutation.isPending ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                'Save Changes'
+                                            )}
+                                        </Button>
+                                        <Button
+                                            onClick={handleDelete}
+                                            disabled={isFormDisabled}
+                                            variant="destructive"
+                                        >
+                                            {deletePickupMutation.isPending ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Deleting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </>
+                                            )}
+                                        </Button>
+                                        <Button
+                                            onClick={handleCancel}
+                                            disabled={isFormDisabled}
+                                            variant="outline"
+                                        >
+                                            Cancel
+                                        </Button>
                                     </div>
                                 </div>
                             </ScrollArea>
-                        </div>
-                    )}
-
-                    {/* Action Buttons - Always visible at bottom */}
-                    {isEditing && (
-                        <div className="flex gap-2 pt-4 border-t">
-                            <Button
-                                variant="outline"
-                                onClick={handleCancel}
-                                disabled={isFormDisabled}
-                                className="flex-1"
-                            >
-                                <img 
-                                    src="/assets/generated/cancel-icon.dim_32x32.png" 
-                                    alt="Cancel" 
-                                    className="h-4 w-4 mr-2"
-                                />
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={handleDelete}
-                                disabled={isFormDisabled}
-                                className="flex-1"
-                            >
-                                {deletePickupMutation.isPending ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Deleting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete
-                                    </>
-                                )}
-                            </Button>
-                            <Button
-                                onClick={handleSave}
-                                disabled={isFormDisabled}
-                                className="flex-1"
-                            >
-                                {updatePickupMutation.isPending ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : !isReady ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Connecting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <img 
-                                            src="/assets/generated/save-icon.dim_32x32.png" 
-                                            alt="Save" 
-                                            className="h-4 w-4 mr-2"
-                                        />
-                                        Save
-                                    </>
-                                )}
-                            </Button>
                         </div>
                     )}
                 </div>

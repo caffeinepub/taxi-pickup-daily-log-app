@@ -97,7 +97,7 @@ export interface backendInterface {
     importData(data: ExportData): Promise<void>;
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
-    recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<void>;
+    recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<bigint>;
     requireProfile(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updatePickup(pickupId: bigint, pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<void>;

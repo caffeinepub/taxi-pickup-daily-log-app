@@ -1,58 +1,74 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T18:58:20.037Z",
+  "generatedAt": "2026-02-08T19:52:01.432Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 3,
-    "implemented": 2,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-5",
-        "summary": "Update the backend actor initialization flow to never leave authenticated users stuck on an indefinite “Initializing…” UI; if actor creation or `initializeAccessControl()` fails, the UI must transition to a visible error state with clear next actions.",
+        "id": "REQ-1",
+        "summary": "Fix the regression where selecting a pickup record in the Edit/Delete Record flow causes the app to render a blank screen; ensure the dialog transitions to the edit form reliably without throwing any runtime errors.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/ActorInitializationGate.tsx",
-          "frontend/src/App.tsx"
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/utils/pickupGuards.ts"
         ],
         "matchedFiles": [
-          "frontend/src/components/ActorInitializationGate.tsx"
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/utils/pickupGuards.ts"
         ]
       },
       {
-        "id": "REQ-6",
-        "summary": "Enhance `frontend/src/hooks/useActor.ts` to expose explicit actor readiness and error status (e.g., `isLoading`, `isReady`, `isError`, `error`) and provide a real `refetch`/retry mechanism that consumers can call.",
-        "status": "missing",
-        "plannedFiles": [
-          "frontend/src/hooks/useActor.ts"
-        ],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-7",
-        "summary": "Update `frontend/src/hooks/useActorReady.ts` and `frontend/src/components/ActorInitializationGate.tsx` to use the new readiness/error status and display an error Alert UI (with a Retry button) when initialization fails.",
+        "id": "REQ-2",
+        "summary": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields so it cannot crash: add defensive handling for time/date conversions, numeric formatting (e.g., toFixed), and any nullable/optional fields on the selected pickup.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useActorReady.ts",
-          "frontend/src/components/ActorInitializationGate.tsx"
+          "frontend/src/utils/numberFormat.ts",
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/components/PickupList.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useActorReady.ts",
-          "frontend/src/components/ActorInitializationGate.tsx"
+          "frontend/src/utils/numberFormat.ts",
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/components/PickupList.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns the user to the pickup list; errors are surfaced in the dialog via existing toast messaging rather than a blank screen.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/utils/errorMessage.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "frontend/src/utils/errorMessage.ts"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/ActorInitializationGate.tsx",
-    "frontend/src/hooks/useActorReady.ts",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/EditDeleteRecordDialog.tsx",
+    "frontend/src/components/PickupList.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/pages/MainApp.tsx",
+    "frontend/src/utils/errorMessage.ts",
+    "frontend/src/utils/numberFormat.ts",
+    "frontend/src/utils/pickupGuards.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

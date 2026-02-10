@@ -136,7 +136,7 @@ export interface _SERVICE {
       number,
       PaymentMethod,
     ],
-    undefined
+    bigint
   >,
   'requireProfile' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,

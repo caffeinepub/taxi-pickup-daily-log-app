@@ -1,75 +1,71 @@
 {
   "kind": "build_request",
-  "title": "Fix infinite “Initializing…” spinner by surfacing actor initialization errors and adding retry",
+  "title": "Fix blank screen regression when selecting a record to edit/delete",
   "priority": "high",
   "requirements": [
     {
-      "id": "REQ-5",
-      "text": "Update the backend actor initialization flow to never leave authenticated users stuck on an indefinite “Initializing…” UI; if actor creation or `initializeAccessControl()` fails, the UI must transition to a visible error state with clear next actions.",
+      "id": "REQ-1",
+      "text": "Fix the regression where selecting a pickup record in the Edit/Delete Record flow causes the app to render a blank screen; ensure the dialog transitions to the edit form reliably without throwing any runtime errors.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-12"
         ],
         "quotes": [
-          "Now it spins on \"initializing\" without completing"
+          "Something broke in the last build, now editing records doesn't work. Once a record is selected a blank screen."
         ]
       },
       "acceptanceCriteria": [
-        "When the app is authenticated and actor initialization fails (e.g., the actor query rejects), the screen shows an error state instead of an infinite spinner.",
-        "The error state includes a user-friendly English message indicating the backend connection/initialization failed.",
-        "The error state includes a retry action that re-attempts actor initialization without requiring a full page refresh.",
-        "There is no remaining code path where `ActorInitializationGate` renders the fallback “Initializing...” view indefinitely when initialization has actually errored."
+        "From the Edit/Delete Record dialog, clicking any pickup in the list does not result in a blank screen.",
+        "After selecting a pickup, the edit form renders with the selected pickup’s data populated.",
+        "No uncaught exceptions are thrown in the browser console during record selection and edit-form rendering."
       ]
     },
     {
-      "id": "REQ-6",
-      "text": "Enhance `frontend/src/hooks/useActor.ts` to expose explicit actor readiness and error status (e.g., `isLoading`, `isReady`, `isError`, `error`) and provide a real `refetch`/retry mechanism that consumers can call.",
+      "id": "REQ-2",
+      "text": "Harden Edit/Delete Record UI rendering against malformed/empty pickup fields so it cannot crash: add defensive handling for time/date conversions, numeric formatting (e.g., toFixed), and any nullable/optional fields on the selected pickup.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-12"
         ],
         "quotes": [
-          "Now it spins on \"initializing\" without completing"
+          "Once a record is selected a blank screen."
         ]
       },
       "acceptanceCriteria": [
-        "`useActor` returns `actor`, `isLoading`, `isReady`, `isError`, and `error` in a way that distinguishes: loading vs success vs error.",
-        "`useActor` exposes a working retry mechanism (e.g., returns `refetch` from the underlying React Query) that triggers a new initialization attempt.",
-        "If actor initialization fails, `error` is non-null and `isError` is true; `actor` remains null and `isReady` is false.",
-        "React Query retry behavior for the actor initialization query is configured to be sensible (finite retries with backoff) so transient failures don’t permanently wedge the app, and persistent failures converge to an error state."
+        "If a pickup has missing/empty fields (e.g., empty time string, unexpected numeric values), the edit screen still renders and shows safe fallbacks instead of crashing.",
+        "Pickup totals displayed in the list and/or edit form never call numeric formatting on undefined/NaN values (no crashes from e.g. toFixed)."
       ]
     },
     {
-      "id": "REQ-7",
-      "text": "Update `frontend/src/hooks/useActorReady.ts` and `frontend/src/components/ActorInitializationGate.tsx` to use the new readiness/error status and display an error Alert UI (with a Retry button) when initialization fails.",
-      "target": "frontend",
+      "id": "REQ-3",
+      "text": "Ensure the Edit/Delete Record actions still work end-to-end after the regression fix: saving an edited pickup updates successfully and returns the user to the pickup list; deleting removes the pickup and returns the user to the pickup list; errors are surfaced in the dialog via existing toast messaging rather than a blank screen.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-12"
         ],
         "quotes": [
-          "Now it spins on \"initializing\" without completing"
+          "now editing records doesn't work"
         ]
       },
       "acceptanceCriteria": [
-        "`useActorReady` no longer hard-codes `isError = false` and `error = null`; it reflects the real actor query status.",
-        "`ActorInitializationGate` shows a loading UI only while initialization is actually in progress.",
-        "`ActorInitializationGate` shows an error `Alert` (English text) when initialization fails, and includes a Retry button wired to the actor retry mechanism.",
-        "On successful retry, the gate proceeds to render its children without requiring navigation or re-login."
+        "Editing a pickup and clicking Save persists changes (via backend updatePickup) and the dialog returns to the pickup list view.",
+        "Deleting a pickup persists deletion (via backend deletePickup) and the dialog returns to the pickup list view.",
+        "On backend or network failure, the app remains usable (no blank screen) and shows an English error toast."
       ]
     }
   ],
   "constraints": [
-    "Respect the existing single-actor backend architecture; do not introduce additional backend services.",
-    "Do not edit files under `frontend/src/components/ui` or any other paths listed in `frontend.immutablePaths`. Compose existing UI components instead.",
-    "Use English for any user-facing text."
+    "Do not edit files under frontend/src/components/ui (compose existing shadcn components instead).",
+    "Do not edit frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, or frontend/src/main.tsx (immutable paths).",
+    "Backend must remain a single Motoko actor in backend/main.mo; only add a migration file if state schema changes are required (avoid schema changes for this fix if possible)."
   ],
   "nonGoals": [
-    "Do not change the owed-driver calculation behavior as part of this fix (separate known issue/feature).",
-    "Do not add third-party auth providers or non-Internet-Identity authentication.",
-    "Do not add real-time/WebSocket functionality."
+    "Adding new features to the record model or introducing new admin flows.",
+    "Changing authentication behavior or Internet Identity integration.",
+    "UI redesign unrelated to fixing the edit-record blank screen regression."
   ],
   "imageRequirements": {
     "required": [],

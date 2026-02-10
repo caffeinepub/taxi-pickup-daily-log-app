@@ -156,7 +156,7 @@ actor TaxiLog {
     meterPaymentMethod : PaymentMethod,
     tip : Float,
     tipPaymentMethod : PaymentMethod,
-  ) : async () {
+  ) : async (Nat) {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Debug.trap("Unauthorized: Only authenticated users can record pickups");
     };
@@ -232,6 +232,8 @@ actor TaxiLog {
         };
       };
     };
+
+    pickup.id;
   };
 
   public query ({ caller }) func getCustomerSuggestions(partialInput : Text) : async [Customer] {
@@ -738,3 +740,4 @@ actor TaxiLog {
   };
 
 };
+
