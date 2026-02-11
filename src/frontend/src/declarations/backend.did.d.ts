@@ -34,7 +34,8 @@ export interface DailyTotals {
   'meterTotal' : number,
   'voucherTipTotal' : number,
 }
-export interface ExportData {
+export interface ImportExportData {
+  'nextPickupId' : [] | [bigint],
   'pickups' : Array<Pickup>,
   'customers' : Array<Customer>,
 }
@@ -106,7 +107,7 @@ export interface _SERVICE {
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteAllRecords' : ActorMethod<[], undefined>,
   'deletePickup' : ActorMethod<[bigint], undefined>,
-  'exportData' : ActorMethod<[], ExportData>,
+  'exportData' : ActorMethod<[], ImportExportData>,
   'findCustomerByAddress' : ActorMethod<[string, string], [] | [Customer]>,
   'findCustomerByPhoneNumber' : ActorMethod<[string], [] | [Customer]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -120,7 +121,7 @@ export interface _SERVICE {
   'getStatus' : ActorMethod<[], { 'status' : string, 'timestamp' : bigint }>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'hasProfile' : ActorMethod<[], boolean>,
-  'importData' : ActorMethod<[ExportData], undefined>,
+  'importData' : ActorMethod<[ImportExportData], undefined>,
   'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'recordPickup' : ActorMethod<

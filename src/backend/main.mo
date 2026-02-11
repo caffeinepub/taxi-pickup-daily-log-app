@@ -6,7 +6,6 @@ import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
 import Int "mo:base/Int";
 import Float "mo:base/Float";
-import List "mo:base/List";
 import Nat "mo:base/Nat";
 import Cycles "mo:base/ExperimentalCycles";
 import Time "mo:base/Time";
@@ -15,14 +14,13 @@ import AccessControl "authorization/access-control";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 
-
-
 actor TaxiLog {
   let storage = Storage.new();
   include MixinStorage(storage);
 
   transient let textMap = OrderedMap.Make<Text>(Text.compare);
   transient let principalMap = OrderedMap.Make<Principal>(Principal.compare);
+  transient let natMap = OrderedMap.Make<Nat>(Nat.compare);
 
   type PaymentMethod = {
     #cash;
@@ -92,15 +90,16 @@ actor TaxiLog {
     summary : ReportSummary;
   };
 
-  type ExportData = {
+  type ImportExportData = {
     pickups : [Pickup];
     customers : [Customer];
+    nextPickupId : ?Nat;
   };
 
   var userProfiles : OrderedMap.Map<Principal, UserProfile> = principalMap.empty<UserProfile>();
   var userPickups : OrderedMap.Map<Principal, OrderedMap.Map<Nat, Pickup>> = principalMap.empty<OrderedMap.Map<Nat, Pickup>>();
   var userCustomers : OrderedMap.Map<Principal, OrderedMap.Map<Text, Customer>> = principalMap.empty<OrderedMap.Map<Text, Customer>>();
-  var nextPickupId : Nat = 0;
+  var userNextPickupId : OrderedMap.Map<Principal, Nat> = principalMap.empty<Nat>();
 
   let accessControlState = AccessControl.initState();
 
@@ -121,28 +120,41 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access profiles");
     };
     principalMap.get(userProfiles, caller);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can save profiles");
     };
     userProfiles := principalMap.put(userProfiles, caller, profile);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access profiles");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not (AccessControl.isAdmin(accessControlState, caller))) {
       Debug.trap("Unauthorized: Can only view your own profile");
     };
+
     principalMap.get(userProfiles, user);
+  };
+
+  private func getNextPickupId(caller : Principal) : Nat {
+    switch (principalMap.get(userNextPickupId, caller)) {
+      case (null) 0;
+      case (?id) id;
+    };
+  };
+
+  private func incrementPickupId(caller : Principal) {
+    let currentId = getNextPickupId(caller);
+    userNextPickupId := principalMap.put(userNextPickupId, caller, currentId + 1);
   };
 
   public shared ({ caller }) func recordPickup(
@@ -157,13 +169,25 @@ actor TaxiLog {
     meterPaymentMethod : PaymentMethod,
     tip : Float,
     tipPaymentMethod : PaymentMethod,
-  ) : async (Nat) {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+  ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can record pickups");
     };
 
+    if (pickupTime == 0) {
+      Debug.trap("Pickup time is required");
+    };
+    if (Text.size(streetAddress) == 0) {
+      Debug.trap("Pickup location is required");
+    };
+    if (Text.size(destinationAddress) == 0) {
+      Debug.trap("Dropoff destination is required");
+    };
+
+    let pickupId = getNextPickupId(caller);
+
     let pickup : Pickup = {
-      id = nextPickupId;
+      id = pickupId;
       pickupDate;
       streetAddress;
       city;
@@ -178,17 +202,16 @@ actor TaxiLog {
       calculatedTotal = meterTotal + tip;
     };
 
-    nextPickupId += 1;
+    incrementPickupId(caller);
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) {
-        var pickups = OrderedMap.Make<Nat>(Nat.compare).empty<Pickup>();
-        pickups := OrderedMap.Make<Nat>(Nat.compare).put(pickups, pickup.id, pickup);
+        var pickups = natMap.empty<Pickup>();
+        pickups := natMap.put(pickups, pickup.id, pickup);
         userPickups := principalMap.put(userPickups, caller, pickups);
       };
       case (?pickups) {
-        let updatedPickups = OrderedMap.Make<Nat>(Nat.compare).put(pickups, pickup.id, pickup);
-        userPickups := principalMap.put(userPickups, caller, updatedPickups);
+        userPickups := principalMap.put(userPickups, caller, natMap.put(pickups, pickup.id, pickup));
       };
     };
 
@@ -238,7 +261,7 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func getCustomerSuggestions(partialInput : Text) : async [Customer] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access customer data");
     };
 
@@ -249,7 +272,19 @@ actor TaxiLog {
         Array.filter<Customer>(
           allCustomers,
           func(customer) {
-            Text.contains(customer.name, #text partialInput) or Text.contains(customer.streetAddress, #text partialInput) or Text.contains(customer.city, #text partialInput) or Text.contains(customer.phoneNumber, #text partialInput);
+            Text.contains(
+              customer.name,
+              #text partialInput,
+            ) or Text.contains(
+              customer.streetAddress,
+              #text partialInput,
+            ) or Text.contains(
+              customer.city,
+              #text partialInput,
+            ) or Text.contains(
+              customer.phoneNumber,
+              #text partialInput,
+            );
           },
         );
       };
@@ -257,21 +292,21 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func getPickupsForDate(selectedDate : Int) : async [Pickup] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access pickup data");
     };
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) [];
       case (?pickups) {
-        let allPickups = Iter.toArray(OrderedMap.Make<Nat>(Nat.compare).vals(pickups));
+        let allPickups = Iter.toArray(natMap.vals(pickups));
         Array.filter<Pickup>(allPickups, func(pickup) = pickup.pickupDate == selectedDate);
       };
     };
   };
 
   public query ({ caller }) func findCustomerByAddress(streetAddress : Text, city : Text) : async ?Customer {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access customer data");
     };
 
@@ -290,7 +325,7 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func findCustomerByPhoneNumber(phoneNumber : Text) : async ?Customer {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access customer data");
     };
 
@@ -309,7 +344,7 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func hasProfile() : async Bool {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can check profile status");
     };
 
@@ -320,7 +355,7 @@ actor TaxiLog {
   };
 
   public shared ({ caller }) func requireProfile() : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access this function");
     };
 
@@ -331,21 +366,21 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func getPickupsInRange(fromDate : Int, toDate : Int) : async [Pickup] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access pickup data");
     };
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) [];
       case (?pickups) {
-        let allPickups = Iter.toArray(OrderedMap.Make<Nat>(Nat.compare).vals(pickups));
+        let allPickups = Iter.toArray(natMap.vals(pickups));
         Array.filter<Pickup>(allPickups, func(pickup) = pickup.pickupDate >= fromDate and pickup.pickupDate <= toDate);
       };
     };
   };
 
   public query ({ caller }) func getDailyReport(fromDate : Int, toDate : Int) : async DailyReport {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access reports");
     };
 
@@ -368,23 +403,25 @@ actor TaxiLog {
         };
       };
       case (?pickups) {
-        let allPickups = Iter.toArray(OrderedMap.Make<Nat>(Nat.compare).vals(pickups));
+        let allPickups = Iter.toArray(natMap.vals(pickups));
         let filteredPickups = Array.filter<Pickup>(allPickups, func(pickup) = pickup.pickupDate >= fromDate and pickup.pickupDate <= toDate);
 
-        let uniqueDatesList = List.map<Int, Int>(
-          List.fromArray(Array.map<Pickup, Int>(filteredPickups, func(pickup) { pickup.pickupDate })),
-          func(x) { x },
-        );
+        let dateMap = OrderedMap.Make<Int>(Int.compare);
+        var dateMapInstance = dateMap.empty<()>();
+        for (pickup in filteredPickups.vals()) {
+          let dayStart = getDayStart(pickup.pickupDate);
+          dateMapInstance := dateMap.put(dateMapInstance, dayStart, ());
+        };
 
-        let uniqueDatesArray = List.toArray(uniqueDatesList);
-        let uniqueDates = Array.sort<Int>(uniqueDatesArray, Int.compare);
+        let uniqueDateList = Iter.toArray(dateMap.keys(dateMapInstance));
+        let uniqueDates = Array.sort<Int>(uniqueDateList, Int.compare);
 
         let dailyTotals = Array.map<Int, DailyTotals>(
           uniqueDates,
           func(date) {
             let dayPickups = Array.filter<Pickup>(
               filteredPickups,
-              func(pickup) { pickup.pickupDate == date },
+              func(pickup) { getDayStart(pickup.pickupDate) == date },
             );
 
             var meterTotal : Float = 0.0;
@@ -477,22 +514,23 @@ actor TaxiLog {
   };
 
   public shared ({ caller }) func deleteAllRecords() : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can delete records");
     };
 
     userPickups := principalMap.remove(userPickups, caller).0;
     userCustomers := principalMap.remove(userCustomers, caller).0;
+    userNextPickupId := principalMap.remove(userNextPickupId, caller).0;
   };
 
   public query ({ caller }) func getPickupById(pickupId : Nat) : async ?Pickup {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access pickup data");
     };
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) null;
-      case (?pickups) OrderedMap.Make<Nat>(Nat.compare).get(pickups, pickupId);
+      case (?pickups) natMap.get(pickups, pickupId);
     };
   };
 
@@ -510,14 +548,14 @@ actor TaxiLog {
     tip : Float,
     tipPaymentMethod : PaymentMethod,
   ) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can update pickups");
     };
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) Debug.trap("No pickups found for user");
       case (?pickups) {
-        switch (OrderedMap.Make<Nat>(Nat.compare).get(pickups, pickupId)) {
+        switch (natMap.get(pickups, pickupId)) {
           case (null) Debug.trap("Pickup not found");
           case (?oldPickup) {
             let updatedPickup : Pickup = {
@@ -536,8 +574,7 @@ actor TaxiLog {
               calculatedTotal = meterTotal + tip;
             };
 
-            let updatedPickups = OrderedMap.Make<Nat>(Nat.compare).put(pickups, pickupId, updatedPickup);
-            userPickups := principalMap.put(userPickups, caller, updatedPickups);
+            userPickups := principalMap.put(userPickups, caller, natMap.put(pickups, pickupId, updatedPickup));
 
             switch (principalMap.get(userCustomers, caller)) {
               case (null) {
@@ -613,18 +650,17 @@ actor TaxiLog {
   };
 
   public shared ({ caller }) func deletePickup(pickupId : Nat) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can delete pickups");
     };
 
     switch (principalMap.get(userPickups, caller)) {
       case (null) Debug.trap("No pickups found for user");
       case (?pickups) {
-        switch (OrderedMap.Make<Nat>(Nat.compare).get(pickups, pickupId)) {
+        switch (natMap.get(pickups, pickupId)) {
           case (null) Debug.trap("Pickup not found");
           case (?_) {
-            let updatedPickups = OrderedMap.Make<Nat>(Nat.compare).remove(pickups, pickupId).0;
-            userPickups := principalMap.put(userPickups, caller, updatedPickups);
+            userPickups := principalMap.put(userPickups, caller, natMap.remove(pickups, pickupId).0);
 
             switch (principalMap.get(userCustomers, caller)) {
               case (null) {};
@@ -651,20 +687,20 @@ actor TaxiLog {
   };
 
   public query ({ caller }) func getCycleBalance() : async Nat {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can access cycle balance");
     };
     Cycles.balance();
   };
 
-  public query ({ caller }) func exportData() : async ExportData {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+  public query ({ caller }) func exportData() : async ImportExportData {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can export data");
     };
 
     let pickups = switch (principalMap.get(userPickups, caller)) {
       case (null) [];
-      case (?pickups) Iter.toArray(OrderedMap.Make<Nat>(Nat.compare).vals(pickups));
+      case (?pickups) Iter.toArray(natMap.vals(pickups));
     };
 
     let customers = switch (principalMap.get(userCustomers, caller)) {
@@ -676,32 +712,42 @@ actor TaxiLog {
       };
     };
 
+    let nextPickupId = getNextPickupId(caller);
+
     {
       pickups;
       customers;
+      nextPickupId = ?nextPickupId;
     };
   };
 
-  public shared ({ caller }) func importData(data : ExportData) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+  public shared ({ caller }) func importData(data : ImportExportData) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Debug.trap("Unauthorized: Only authenticated users can import data");
     };
 
+    if (data.pickups.size() == 0) {
+      Debug.trap("Import failed: No pickup records found in the file.");
+    };
+
+    // Remove old data
     userPickups := principalMap.remove(userPickups, caller).0;
     userCustomers := principalMap.remove(userCustomers, caller).0;
 
-    var pickups = OrderedMap.Make<Nat>(Nat.compare).empty<Pickup>();
+    // Create new pickups map
+    var pickups = natMap.empty<Pickup>();
     for (pickup in data.pickups.vals()) {
-      pickups := OrderedMap.Make<Nat>(Nat.compare).put(pickups, pickup.id, pickup);
+      pickups := natMap.put(pickups, pickup.id, pickup);
     };
     userPickups := principalMap.put(userPickups, caller, pickups);
 
+    // Create new customers map
     var customers = textMap.empty<Customer>();
-
     for (customer in data.customers.vals()) {
       customers := textMap.put(customers, customer.name, customer);
     };
 
+    // Ensure all pickups have corresponding customers
     for (pickup in data.pickups.vals()) {
       switch (textMap.get(customers, pickup.customerName)) {
         case (null) {
@@ -729,15 +775,20 @@ actor TaxiLog {
 
     userCustomers := principalMap.put(userCustomers, caller, customers);
 
+    // Update next pickup ID to be one greater than the maximum imported ID
     var maxId : Nat = 0;
     for (pickup in data.pickups.vals()) {
-      if (pickup.id >= maxId) {
-        maxId := pickup.id + 1;
+      if (pickup.id > maxId) {
+        maxId := pickup.id;
       };
     };
-    if (maxId > nextPickupId) {
-      nextPickupId := maxId;
+    let newNextId = switch (data.nextPickupId) {
+      case (null) maxId + 1;
+      case (?nextId) {
+        if (maxId > nextId) { maxId + 1 } else { nextId };
+      };
     };
+    userNextPickupId := principalMap.put(userNextPickupId, caller, newNextId);
   };
 
   public query func getStatus() : async {
@@ -750,4 +801,11 @@ actor TaxiLog {
     };
   };
 
+  /// Helper function to get the start of a day (timestamp at 12:00 AM).
+  func getDayStart(date : Int) : Int {
+    // There are 86400000000000 nanoseconds in a day (24 * 60 * 60 * 1000000000).
+    let nanosecondsInDay : Int = 86400000000000;
+    let daysSinceEpoch = date / nanosecondsInDay;
+    daysSinceEpoch * nanosecondsInDay;
+  };
 };

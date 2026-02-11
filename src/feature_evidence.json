@@ -2,13 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-expose-actor-initialization-failures-to-the-ui-and-add-robust-retry-behavior-so-the-app-can-recover-from-transient-backend-unavailability-especially-right-after-a-new-build-deploy-update-the-actor-initialization-logic-to-1-surface-the-underlying-error-and-message-2-retry-with-exponential-backoff-for-a-finite-number-of-attempts-and-3-allow-an-explicit-user-triggered-retry-without-requiring-a-full-page-reload",
-      "featureTitle": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
+      "featureId": "feature-fix-the-daily-report-so-it-reliably-returns-and-displays-one-aggregated-record-per-calendar-day-within-the-selected-date-range-for-days-that-have-pickups-and-it-does-not-collapse-multiple-days-into-a-single-displayed-day",
+      "featureTitle": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
       "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/hooks/useActorReady.ts",
-        "frontend/src/hooks/useBackendActor.tsx",
-        "frontend/src/utils/retryBackoff.ts"
+        "frontend/src/components/DailyReportDialog.tsx"
       ],
       "components": [
         "authorization@1.0.1",
@@ -25,11 +22,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-a-lightweight-backend-health-endpoint-to-distinguish-backend-down-unreachable-from-other-initialization-errors-implement-a-public-query-method-e-g-ping-getstatus-that-returns-a-small-stable-payload-e-g-ok-and-or-a-timestamp-use-this-method-from-the-frontend-during-actor-initialization-to-verify-backend-reachability-before-or-while-running-initializeaccesscontrol-and-use-the-result-to-improve-the-error-message-shown-to-the-user",
-      "featureTitle": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
+      "featureId": "feature-ensure-the-daily-report-dialog-supports-scrolling-so-all-daily-breakdown-cards-and-the-final-summary-are-reachable-on-both-desktop-and-mobile-including-the-reported-case-where-it-appears-not-scrollable",
+      "featureTitle": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile (including the reported case where it appears 'not scrollable').",
       "files": [
-        "frontend/src/components/ActorInitializationGate.tsx",
-        "frontend/src/hooks/useBackendActor.tsx"
+        "frontend/src/components/DailyReportDialog.tsx",
+        "frontend/src/index.css"
       ],
       "components": [
         "authorization@1.0.1",
@@ -46,11 +43,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-improve-the-connection-failed-screen-to-show-actionable-diagnostic-details-and-recovery-options-for-post-deploy-scenarios-include-1-the-extracted-error-message-sanitized-to-a-stable-english-string-2-a-clear-hint-when-the-browser-is-offline-and-3-an-additional-hard-refresh-option-that-forces-a-cache-busting-reload-for-cases-where-a-stale-frontend-bundle-is-incompatible-with-the-newly-deployed-backend",
-      "featureTitle": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
+      "featureId": "feature-keep-or-restore-the-end-of-period-summary-section-for-the-selected-date-range-and-ensure-its-totals-match-the-sum-of-the-displayed-daily-breakdown-totals-for-the-period",
+      "featureTitle": "Keep (or restore) the end-of-period summary section for the selected date range, and ensure its totals match the sum of the displayed daily breakdown totals for the period.",
       "files": [
-        "frontend/src/components/ActorInitializationGate.tsx",
-        "frontend/src/utils/connectionDiagnostics.ts"
+        "frontend/src/components/DailyReportDialog.tsx"
       ],
       "components": [
         "authorization@1.0.1",
@@ -63,6 +59,26 @@
       ],
       "testIds": [
         "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-extend-a-manual-regression-check-document-entry-specifically-for-this-issue-multi-day-daily-report-after-import-should-show-all-days-with-data-and-be-scrollable",
+      "featureTitle": "Add/extend a manual regression check document entry specifically for this issue: multi-day daily report after import should show all days with data and be scrollable.",
+      "files": [
+        "frontend/src/docs/manual-qa-version-103-regression-checks.md"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
       ],
       "confidence": "high"
     }

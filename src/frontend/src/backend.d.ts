@@ -22,7 +22,8 @@ export interface Pickup {
     tipPaymentMethod: PaymentMethod;
     streetAddress: string;
 }
-export interface ExportData {
+export interface ImportExportData {
+    nextPickupId?: bigint;
     pickups: Array<Pickup>;
     customers: Array<Customer>;
 }
@@ -81,7 +82,7 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteAllRecords(): Promise<void>;
     deletePickup(pickupId: bigint): Promise<void>;
-    exportData(): Promise<ExportData>;
+    exportData(): Promise<ImportExportData>;
     findCustomerByAddress(streetAddress: string, city: string): Promise<Customer | null>;
     findCustomerByPhoneNumber(phoneNumber: string): Promise<Customer | null>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -98,7 +99,7 @@ export interface backendInterface {
     }>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     hasProfile(): Promise<boolean>;
-    importData(data: ExportData): Promise<void>;
+    importData(data: ImportExportData): Promise<void>;
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<bigint>;

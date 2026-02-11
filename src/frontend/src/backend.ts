@@ -108,7 +108,8 @@ export interface _CaffeineStorageRefillResult {
     success?: boolean;
     topped_up_amount?: bigint;
 }
-export interface ExportData {
+export interface ImportExportData {
+    nextPickupId?: bigint;
     pickups: Array<Pickup>;
     customers: Array<Customer>;
 }
@@ -180,7 +181,7 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteAllRecords(): Promise<void>;
     deletePickup(pickupId: bigint): Promise<void>;
-    exportData(): Promise<ExportData>;
+    exportData(): Promise<ImportExportData>;
     findCustomerByAddress(streetAddress: string, city: string): Promise<Customer | null>;
     findCustomerByPhoneNumber(phoneNumber: string): Promise<Customer | null>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -197,7 +198,7 @@ export interface backendInterface {
     }>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     hasProfile(): Promise<boolean>;
-    importData(data: ExportData): Promise<void>;
+    importData(data: ImportExportData): Promise<void>;
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     recordPickup(pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<bigint>;
@@ -205,7 +206,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updatePickup(pickupId: bigint, pickupDate: bigint, streetAddress: string, city: string, customerName: string, phoneNumber: string, pickupTime: bigint, destinationAddress: string, meterTotal: number, meterPaymentMethod: PaymentMethod, tip: number, tipPaymentMethod: PaymentMethod): Promise<void>;
 }
-import type { Customer as _Customer, ExportData as _ExportData, PaymentMethod as _PaymentMethod, Pickup as _Pickup, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { Customer as _Customer, ImportExportData as _ImportExportData, PaymentMethod as _PaymentMethod, Pickup as _Pickup, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -334,18 +335,18 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async exportData(): Promise<ExportData> {
+    async exportData(): Promise<ImportExportData> {
         if (this.processError) {
             try {
                 const result = await this.actor.exportData();
-                return from_candid_ExportData_n10(this._uploadFile, this._downloadFile, result);
+                return from_candid_ImportExportData_n10(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.exportData();
-            return from_candid_ExportData_n10(this._uploadFile, this._downloadFile, result);
+            return from_candid_ImportExportData_n10(this._uploadFile, this._downloadFile, result);
         }
     }
     async findCustomerByAddress(arg0: string, arg1: string): Promise<Customer | null> {
@@ -533,17 +534,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async importData(arg0: ExportData): Promise<void> {
+    async importData(arg0: ImportExportData): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.importData(to_candid_ExportData_n28(this._uploadFile, this._downloadFile, arg0));
+                const result = await this.actor.importData(to_candid_ImportExportData_n28(this._uploadFile, this._downloadFile, arg0));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.importData(to_candid_ExportData_n28(this._uploadFile, this._downloadFile, arg0));
+            const result = await this.actor.importData(to_candid_ImportExportData_n28(this._uploadFile, this._downloadFile, arg0));
             return result;
         }
     }
@@ -635,7 +636,7 @@ export class Backend implements backendInterface {
 function from_candid_Customer_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Customer): Customer {
     return from_candid_record_n19(_uploadFile, _downloadFile, value);
 }
-function from_candid_ExportData_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ExportData): ExportData {
+function from_candid_ImportExportData_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ImportExportData): ImportExportData {
     return from_candid_record_n11(_uploadFile, _downloadFile, value);
 }
 function from_candid_PaymentMethod_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _PaymentMethod): PaymentMethod {
@@ -672,13 +673,16 @@ function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Ar
     return value.length === 0 ? null : value[0];
 }
 function from_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    nextPickupId: [] | [bigint];
     pickups: Array<_Pickup>;
     customers: Array<_Customer>;
 }): {
+    nextPickupId?: bigint;
     pickups: Array<Pickup>;
     customers: Array<Customer>;
 } {
     return {
+        nextPickupId: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.nextPickupId)),
         pickups: from_candid_vec_n12(_uploadFile, _downloadFile, value.pickups),
         customers: from_candid_vec_n17(_uploadFile, _downloadFile, value.customers)
     };
@@ -803,7 +807,7 @@ function from_candid_vec_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function to_candid_Customer_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Customer): _Customer {
     return to_candid_record_n37(_uploadFile, _downloadFile, value);
 }
-function to_candid_ExportData_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ExportData): _ExportData {
+function to_candid_ImportExportData_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ImportExportData): _ImportExportData {
     return to_candid_record_n29(_uploadFile, _downloadFile, value);
 }
 function to_candid_PaymentMethod_n33(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: PaymentMethod): _PaymentMethod {
@@ -825,13 +829,16 @@ function to_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Arra
     return value === null ? candid_none() : candid_some(to_candid__CaffeineStorageRefillInformation_n2(_uploadFile, _downloadFile, value));
 }
 function to_candid_record_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    nextPickupId?: bigint;
     pickups: Array<Pickup>;
     customers: Array<Customer>;
 }): {
+    nextPickupId: [] | [bigint];
     pickups: Array<_Pickup>;
     customers: Array<_Customer>;
 } {
     return {
+        nextPickupId: value.nextPickupId ? candid_some(value.nextPickupId) : candid_none(),
         pickups: to_candid_vec_n30(_uploadFile, _downloadFile, value.pickups),
         customers: to_candid_vec_n35(_uploadFile, _downloadFile, value.customers)
     };

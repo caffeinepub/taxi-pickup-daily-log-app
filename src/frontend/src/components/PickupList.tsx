@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useGetPickupsForDate } from '../hooks/useQueries';
 import type { Pickup } from '../backend';
 import { calculateOwedDriver } from '../utils/owedDriver';
 import { nanosToDate, nanosToTimeString } from '../utils/pickupGuards';
-import { safeCurrency, safeFixed } from '../utils/numberFormat';
+import { safeCurrency } from '../utils/numberFormat';
+import { getErrorMessage } from '../utils/errorMessage';
 
 interface PickupListProps {
     selectedDate: Date;
@@ -18,7 +20,7 @@ export default function PickupList({ selectedDate }: PickupListProps) {
     const endOfDay = new Date(selectedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const { data: pickups = [], isLoading } = useGetPickupsForDate(
+    const { data: pickups = [], isLoading, isError, error } = useGetPickupsForDate(
         BigInt(startOfDay.getTime()) * BigInt(1000000),
         BigInt(endOfDay.getTime()) * BigInt(1000000)
     );
@@ -102,6 +104,17 @@ export default function PickupList({ selectedDate }: PickupListProps) {
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                    Failed to load pickups: {getErrorMessage(error)}
+                </AlertDescription>
+            </Alert>
         );
     }
 

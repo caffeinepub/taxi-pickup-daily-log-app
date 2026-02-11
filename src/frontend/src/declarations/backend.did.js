@@ -51,7 +51,8 @@ export const Customer = IDL.Record({
   'phoneNumber' : IDL.Text,
   'streetAddress' : IDL.Text,
 });
-export const ExportData = IDL.Record({
+export const ImportExportData = IDL.Record({
+  'nextPickupId' : IDL.Opt(IDL.Nat),
   'pickups' : IDL.Vec(Pickup),
   'customers' : IDL.Vec(Customer),
 });
@@ -120,7 +121,7 @@ export const idlService = IDL.Service({
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteAllRecords' : IDL.Func([], [], []),
   'deletePickup' : IDL.Func([IDL.Nat], [], []),
-  'exportData' : IDL.Func([], [ExportData], ['query']),
+  'exportData' : IDL.Func([], [ImportExportData], ['query']),
   'findCustomerByAddress' : IDL.Func(
       [IDL.Text, IDL.Text],
       [IDL.Opt(Customer)],
@@ -158,7 +159,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'hasProfile' : IDL.Func([], [IDL.Bool], ['query']),
-  'importData' : IDL.Func([ExportData], [], []),
+  'importData' : IDL.Func([ImportExportData], [], []),
   'initializeAccessControl' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'recordPickup' : IDL.Func(
@@ -246,7 +247,8 @@ export const idlFactory = ({ IDL }) => {
     'phoneNumber' : IDL.Text,
     'streetAddress' : IDL.Text,
   });
-  const ExportData = IDL.Record({
+  const ImportExportData = IDL.Record({
+    'nextPickupId' : IDL.Opt(IDL.Nat),
     'pickups' : IDL.Vec(Pickup),
     'customers' : IDL.Vec(Customer),
   });
@@ -315,7 +317,7 @@ export const idlFactory = ({ IDL }) => {
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteAllRecords' : IDL.Func([], [], []),
     'deletePickup' : IDL.Func([IDL.Nat], [], []),
-    'exportData' : IDL.Func([], [ExportData], ['query']),
+    'exportData' : IDL.Func([], [ImportExportData], ['query']),
     'findCustomerByAddress' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Opt(Customer)],
@@ -353,7 +355,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'hasProfile' : IDL.Func([], [IDL.Bool], ['query']),
-    'importData' : IDL.Func([ExportData], [], []),
+    'importData' : IDL.Func([ImportExportData], [], []),
     'initializeAccessControl' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'recordPickup' : IDL.Func(

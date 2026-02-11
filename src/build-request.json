@@ -1,77 +1,109 @@
 {
   "kind": "build_request",
-  "title": "Fix repeated backend connection failures after deployments",
+  "title": "Fix Daily Report regression: show one record per day with data + working scrolling + period summary",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
-      "target": "frontend",
+      "text": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-user-1"
+          "msg-4",
+          "msg-6"
         ],
         "quotes": [
-          "But every build causes connection error. See photo."
+          "Yes, only one record shows on daily report. It should show daily totals for each day in range, just as it used to.",
+          "One record displayed per day. Only show days with data."
         ]
       },
       "acceptanceCriteria": [
-        "When backend calls fail during actor creation/initialization, the app does not silently fall through to the generic 'Connection Failed' state without details; the underlying error message is available to the gate.",
-        "Actor initialization automatically retries (finite attempts) with backoff before showing the error state.",
-        "The 'Retry Connection' action triggers a refetch/retry of actor initialization without requiring window.location.reload().",
-        "If retries eventually succeed, the app proceeds to the authenticated flow without requiring the user to re-login."
+        "Given imported data containing pickups on multiple distinct dates within the selected range, the Daily Report displays a separate daily breakdown card for each date that has pickups.",
+        "The Daily Report does not display any days that have zero pickups in the selected range.",
+        "Daily breakdown cards are sorted chronologically by date.",
+        "The UI does not use a deduplication strategy that can incorrectly drop legitimate days (e.g., if the backend already aggregates by day, the frontend should render the returned days as-is; if dedup is still needed, it must not collapse distinct days)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
-      "target": "both",
+      "text": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile (including the reported case where it appears 'not scrollable').",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-user-1"
+          "msg-4"
         ],
         "quotes": [
-          "But every build causes connection error. See photo."
+          "When results of daily report are displayed it just looks like scrolling is not working. Just get first day in range."
         ]
       },
       "acceptanceCriteria": [
-        "Backend exposes a new query method that can be called anonymously and returns quickly without side effects.",
-        "Frontend calls the health method as part of the connection/initialization path and uses it to determine whether the canister is reachable.",
-        "If the health call succeeds but initialization still fails, the UI indicates this is not a general connectivity outage (i.e., it is a different error)."
+        "With enough daily breakdown cards to exceed the dialog height, users can scroll within the Daily Report dialog to view all days and the summary.",
+        "Scrolling works using mouse wheel/trackpad and touch scrolling on mobile.",
+        "The dialog content remains within the viewport (no content is rendered off-screen without a way to reach it)."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
-      "target": "frontend",
+      "text": "Keep (or restore) the end-of-period summary section for the selected date range, and ensure its totals match the sum of the displayed daily breakdown totals for the period.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-user-1"
+          "msg-6"
         ],
         "quotes": [
-          "Connection Failed",
-          "Unable to connect to the backend. This could be due to a network issue or the backend service being temporarily unavailable."
+          "If course show summary at the end for the period."
         ]
       },
       "acceptanceCriteria": [
-        "The error state shows a readable error message derived via the existing error-message utility (or equivalent) rather than only generic text.",
-        "If navigator.onLine is false, the UI explicitly tells the user they appear offline.",
-        "The error screen provides three distinct recovery actions: Retry (refetch), Logout & Retry (clear II state then refetch), and Hard refresh (cache-busting reload).",
-        "All user-facing text on the error screen is English."
+        "The Daily Report shows a 'Summary' section after the daily breakdown list whenever the report returns data.",
+        "Summary totals (meter totals, tip totals, grand total, total owed driver) equal the sum across all included days (days with pickups) for the selected range.",
+        "If no days have pickups in the selected range, the UI shows the existing empty state message and does not show a misleading non-zero summary."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Add/extend a manual regression check document entry specifically for this issue: multi-day daily report after import should show all days with data and be scrollable.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3",
+          "msg-4",
+          "msg-6"
+        ],
+        "quotes": [
+          "Import said it worked. But, only one record shows out if 134 records in last file implemented.",
+          "Yes, only one record shows on daily report. It should show daily totals for each day in range, just as it used to.",
+          "I just want it to work like it used to before it broke."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The repo includes an updated manual QA checklist (can extend the existing daily report multi-day test) that explicitly verifies: (1) import a file with many pickups across many days, (2) open Daily Report for a range covering those days, (3) confirm multiple day cards render and the list scrolls to the end summary."
       ]
     }
   ],
   "constraints": [
-    "Respect the single-actor backend architecture: all Motoko logic stays in backend/main.mo.",
-    "Do not edit files under frontend immutablePaths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui). Compose or add new modules/components instead where needed."
+    "Backend must remain a single Motoko actor in backend/main.mo; do not introduce additional backend services.",
+    "Do not edit frontend immutable paths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*).",
+    "Use English for any user-facing text.",
+    "Preserve existing import behavior (already reports success) unless a change is strictly required to fix daily report correctness."
   ],
   "nonGoals": [
-    "Adding WebSockets or any real-time connection layer.",
-    "Integrating third-party monitoring/analytics services.",
-    "Changing authentication provider (must remain Internet Identity)."
+    "Adding pagination or infinite scrolling to the Daily Report beyond restoring functional scrolling within the dialog.",
+    "Changing the Export/Import UI/UX or file format beyond what is necessary to make the daily report accurate.",
+    "Adding new report types or additional analytics fields not already present in the daily report payload/UI."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

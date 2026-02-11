@@ -13,6 +13,8 @@ import { PaymentMethod, type Customer } from '../backend';
 import { toast } from 'sonner';
 import CustomerLookup from './CustomerLookup';
 import { useActorReady } from '../hooks/useActorReady';
+import { safeParseFloat } from '../utils/numberFormat';
+import { getErrorMessage } from '../utils/errorMessage';
 
 interface PickupFormProps {
     selectedDate: Date;
@@ -52,8 +54,39 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!pickupTime || !customerName || !streetAddress || !city || !phoneNumber || !destinationAddress || !meterTotal || !tip) {
-            toast.error('Please fill in all required fields');
+        // Validate only required fields: pickupTime, streetAddress, city (pickup location), and destinationAddress
+        const missingFields: string[] = [];
+        
+        if (!pickupTime.trim()) {
+            missingFields.push('Pickup Time');
+        }
+        if (!streetAddress.trim()) {
+            missingFields.push('Street Address');
+        }
+        if (!city.trim()) {
+            missingFields.push('City');
+        }
+        if (!destinationAddress.trim()) {
+            missingFields.push('Destination Address');
+        }
+
+        if (missingFields.length > 0) {
+            toast.error(`Please fill in the following required fields: ${missingFields.join(', ')}`);
+            return;
+        }
+
+        // Parse optional numeric fields with safe defaults
+        const parsedMeterTotal = meterTotal.trim() === '' ? 0 : safeParseFloat(meterTotal);
+        const parsedTip = tip.trim() === '' ? 0 : safeParseFloat(tip);
+
+        // Validate numeric fields if they were provided
+        if (meterTotal.trim() !== '' && isNaN(parsedMeterTotal)) {
+            toast.error('Please enter a valid meter total');
+            return;
+        }
+
+        if (tip.trim() !== '' && isNaN(parsedTip)) {
+            toast.error('Please enter a valid tip amount');
             return;
         }
 
@@ -67,15 +100,15 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
 
             await recordPickupMutation.mutateAsync({
                 pickupDate: BigInt(pickupDateOnly.getTime()) * BigInt(1000000),
-                streetAddress,
-                city,
-                customerName,
-                phoneNumber,
+                streetAddress: streetAddress.trim(),
+                city: city.trim(),
+                customerName: customerName.trim() || '',
+                phoneNumber: phoneNumber.trim() || '',
                 pickupTime: BigInt(pickupDateTime.getTime()) * BigInt(1000000),
-                destinationAddress,
-                meterTotal: parseFloat(meterTotal),
+                destinationAddress: destinationAddress.trim(),
+                meterTotal: parsedMeterTotal,
                 paymentMethod: meterPaymentMethod,
-                tip: parseFloat(tip),
+                tip: parsedTip,
                 tipPaymentMethod,
             });
 
@@ -94,8 +127,9 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
             setTipPaymentMethod(PaymentMethod.cash);
 
             onPickupRecorded();
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to record pickup');
+        } catch (error: unknown) {
+            const errorMsg = getErrorMessage(error);
+            toast.error(errorMsg || 'Failed to record pickup');
         }
     };
 
@@ -109,7 +143,7 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                             alt="Calendar" 
                             className="w-4 h-4 inline mr-2"
                         />
-                        Pickup Date *
+                        Pickup Date
                     </Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -150,7 +184,6 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         type="time"
                         value={pickupTime}
                         onChange={(e) => setPickupTime(e.target.value)}
-                        required
                         disabled={!isReady}
                     />
                 </div>
@@ -187,7 +220,6 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
                         placeholder="123 Main St"
-                        required
                         disabled={!isReady}
                     />
                 </div>
@@ -199,7 +231,6 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder="Springfield"
-                        required
                         disabled={!isReady}
                     />
                 </div>
@@ -212,14 +243,13 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         alt="Phone" 
                         className="w-4 h-4 inline mr-2"
                     />
-                    Phone Number *
+                    Phone Number
                 </Label>
                 <Input
                     id="phoneNumber"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="555-1234"
-                    required
                     disabled={!isReady}
                 />
             </div>
@@ -238,14 +268,13 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
                     placeholder="456 Oak Ave"
-                    required
                     disabled={!isReady}
                 />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="meterTotal">Meter Total *</Label>
+                    <Label htmlFor="meterTotal">Meter Total</Label>
                     <Input
                         id="meterTotal"
                         type="number"
@@ -253,22 +282,21 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         value={meterTotal}
                         onChange={(e) => setMeterTotal(e.target.value)}
                         placeholder="0.00"
-                        required
                         disabled={!isReady}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Meter Payment Method *</Label>
+                    <Label htmlFor="meterPaymentMethod">Meter Payment Method</Label>
                     <Select
                         value={meterPaymentMethod}
                         onValueChange={(value) => setMeterPaymentMethod(value as PaymentMethod)}
                         disabled={!isReady}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger id="meterPaymentMethod">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-popover text-popover-foreground border border-border shadow-lg">
+                        <SelectContent>
                             <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
                             <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
                             <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>
@@ -279,7 +307,7 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="tip">Tip *</Label>
+                    <Label htmlFor="tip">Tip</Label>
                     <Input
                         id="tip"
                         type="number"
@@ -287,22 +315,21 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         value={tip}
                         onChange={(e) => setTip(e.target.value)}
                         placeholder="0.00"
-                        required
                         disabled={!isReady}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Tip Payment Method *</Label>
+                    <Label htmlFor="tipPaymentMethod">Tip Payment Method</Label>
                     <Select
                         value={tipPaymentMethod}
                         onValueChange={(value) => setTipPaymentMethod(value as PaymentMethod)}
                         disabled={!isReady}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger id="tipPaymentMethod">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-popover text-popover-foreground border border-border shadow-lg">
+                        <SelectContent>
                             <SelectItem value={PaymentMethod.cash}>Cash</SelectItem>
                             <SelectItem value={PaymentMethod.credit}>Credit</SelectItem>
                             <SelectItem value={PaymentMethod.voucher}>Voucher</SelectItem>

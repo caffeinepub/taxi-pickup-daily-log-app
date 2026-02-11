@@ -12,6 +12,8 @@ import { Loader2, Download, Upload } from 'lucide-react';
 import { useExportData, useImportData } from '../hooks/useQueries';
 import { toast } from 'sonner';
 import { useActorReady } from '../hooks/useActorReady';
+import { getErrorMessage } from '../utils/errorMessage';
+import type { ImportExportData } from '../backend';
 
 interface ExportImportDialogProps {
     open: boolean;
@@ -34,14 +36,14 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `taxi-log-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `taxi-log-export-${new Date().toISOString().split('T')[0]}T${new Date().toTimeString().split(' ')[0].replace(/:/g, '-')}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             toast.success('Data exported successfully');
         } catch (error: any) {
-            toast.error(error.message || 'Failed to export data');
+            toast.error(getErrorMessage(error));
         }
     };
 
@@ -52,6 +54,97 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
         }
     };
 
+    const normalizeImportData = (data: any): any => {
+        // Handle legacy/mistyped field names by mapping them to the correct field
+        const normalized = { ...data };
+        
+        // Map common variants of nextPickupId to the correct field name
+        if ('nextpickupupld' in normalized && !('nextPickupId' in normalized)) {
+            normalized.nextPickupId = normalized.nextpickupupld;
+            delete normalized.nextpickupupld;
+        }
+        if ('nextpickupid' in normalized && !('nextPickupId' in normalized)) {
+            normalized.nextPickupId = normalized.nextpickupid;
+            delete normalized.nextpickupid;
+        }
+        if ('next_pickup_id' in normalized && !('nextPickupId' in normalized)) {
+            normalized.nextPickupId = normalized.next_pickup_id;
+            delete normalized.next_pickup_id;
+        }
+        
+        return normalized;
+    };
+
+    const validateImportData = (data: any): { valid: boolean; error?: string } => {
+        // Check top-level structure
+        if (!data || typeof data !== 'object') {
+            return { valid: false, error: 'Invalid file format: expected JSON object' };
+        }
+
+        if (!Array.isArray(data.pickups)) {
+            return { valid: false, error: 'Invalid file format: missing or invalid "pickups" array' };
+        }
+
+        if (!Array.isArray(data.customers)) {
+            return { valid: false, error: 'Invalid file format: missing or invalid "customers" array' };
+        }
+
+        // nextPickupId is now optional - will be computed if missing
+
+        // Validate each pickup record
+        for (let i = 0; i < data.pickups.length; i++) {
+            const pickup = data.pickups[i];
+            const requiredFields = [
+                'id', 'pickupDate', 'streetAddress', 'city', 'customerName',
+                'phoneNumber', 'pickupTime', 'destinationAddress', 'meterTotal',
+                'meterPaymentMethod', 'tip', 'tipPaymentMethod', 'calculatedTotal'
+            ];
+
+            for (const field of requiredFields) {
+                if (!(field in pickup)) {
+                    return {
+                        valid: false,
+                        error: `Invalid pickup record at index ${i}: missing required field "${field}"`
+                    };
+                }
+            }
+
+            // Validate payment method enums
+            const validPaymentMethods = ['cash', 'credit', 'voucher'];
+            if (!validPaymentMethods.includes(pickup.meterPaymentMethod)) {
+                return {
+                    valid: false,
+                    error: `Invalid pickup record at index ${i}: invalid meterPaymentMethod "${pickup.meterPaymentMethod}"`
+                };
+            }
+            if (!validPaymentMethods.includes(pickup.tipPaymentMethod)) {
+                return {
+                    valid: false,
+                    error: `Invalid pickup record at index ${i}: invalid tipPaymentMethod "${pickup.tipPaymentMethod}"`
+                };
+            }
+        }
+
+        return { valid: true };
+    };
+
+    const reconstructNextPickupId = (pickups: any[]): bigint => {
+        // Find the maximum pickup ID and add 1
+        if (pickups.length === 0) {
+            return 0n;
+        }
+
+        let maxId = 0n;
+        for (const pickup of pickups) {
+            const pickupId = typeof pickup.id === 'bigint' ? pickup.id : BigInt(pickup.id);
+            if (pickupId > maxId) {
+                maxId = pickupId;
+            }
+        }
+
+        return maxId + 1n;
+    };
+
     const handleImport = async () => {
         if (!selectedFile) {
             toast.error('Please select a file to import');
@@ -60,19 +153,50 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
 
         try {
             const text = await selectedFile.text();
-            const data = JSON.parse(text, (key, value) => {
-                if (key === 'id' || key === 'pickupDate' || key === 'pickupTime') {
-                    return BigInt(value);
+            
+            // Parse JSON with BigInt revival for all relevant fields
+            let parsedData = JSON.parse(text, (key, value) => {
+                // Convert string representations back to BigInt for all bigint fields
+                if (key === 'id' || key === 'pickupDate' || key === 'pickupTime' || key === 'nextPickupId') {
+                    // Handle both string and number inputs
+                    if (typeof value === 'string' || typeof value === 'number') {
+                        try {
+                            return BigInt(value);
+                        } catch {
+                            return value; // Keep original if conversion fails, validation will catch it
+                        }
+                    }
                 }
                 return value;
             });
 
-            await importDataMutation.mutateAsync(data);
-            toast.success('Data imported successfully');
+            // Normalize field names (handle legacy/mistyped variants)
+            parsedData = normalizeImportData(parsedData);
+
+            // Validate the imported data structure
+            const validation = validateImportData(parsedData);
+            if (!validation.valid) {
+                toast.error(validation.error || 'Invalid import file format');
+                return;
+            }
+
+            // Reconstruct nextPickupId if missing (backward compatibility)
+            if (typeof parsedData.nextPickupId === 'undefined' || parsedData.nextPickupId === null) {
+                parsedData.nextPickupId = reconstructNextPickupId(parsedData.pickups);
+            }
+
+            // Import the data
+            await importDataMutation.mutateAsync(parsedData as ImportExportData);
+            
+            toast.success(`Successfully imported ${parsedData.pickups.length} pickup record(s)`);
             setSelectedFile(null);
             onOpenChange(false);
         } catch (error: any) {
-            toast.error(error.message || 'Failed to import data');
+            if (error instanceof SyntaxError) {
+                toast.error('Invalid JSON file format');
+            } else {
+                toast.error(getErrorMessage(error));
+            }
         }
     };
 

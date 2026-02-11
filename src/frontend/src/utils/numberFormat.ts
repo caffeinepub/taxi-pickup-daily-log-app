@@ -36,10 +36,14 @@ export function safeFixed(value: number | undefined | null, decimals: number = 2
 
 /**
  * Safely parses a string to a float, returning 0 for invalid values
+ * Accepts zero values and trims whitespace
  */
 export function safeParseFloat(value: string | undefined | null): number {
-  if (!value) return 0;
+  if (value === undefined || value === null) return 0;
   
-  const parsed = parseFloat(value);
+  const trimmed = value.trim();
+  if (trimmed === '') return 0;
+  
+  const parsed = parseFloat(trimmed);
   return isFinite(parsed) ? parsed : 0;
 }

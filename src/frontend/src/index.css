@@ -41,24 +41,24 @@
     --card-foreground: 95% 0.01 85;
     --popover: 22% 0.02 85;
     --popover-foreground: 95% 0.01 85;
-    --primary: 70% 0.18 85;
-    --primary-foreground: 15% 0.02 85;
+    --primary: 70% 0.16 85;
+    --primary-foreground: 18% 0.02 85;
     --secondary: 28% 0.03 85;
     --secondary-foreground: 95% 0.01 85;
     --muted: 26% 0.02 85;
     --muted-foreground: 65% 0.02 85;
-    --accent: 32% 0.05 85;
+    --accent: 30% 0.04 85;
     --accent-foreground: 95% 0.01 85;
     --destructive: 55% 0.22 25;
     --destructive-foreground: 100% 0 0;
-    --border: 32% 0.03 85;
-    --input: 32% 0.03 85;
-    --ring: 70% 0.18 85;
+    --border: 30% 0.03 85;
+    --input: 30% 0.03 85;
+    --ring: 70% 0.16 85;
     
-    /* RGB fallbacks for dark mode */
-    --popover-rgb: 40, 38, 35;
-    --card-rgb: 40, 38, 35;
-    --border-rgb: 60, 56, 50;
+    /* RGB fallbacks for maximum Android Chrome compatibility */
+    --popover-rgb: 40, 38, 32;
+    --card-rgb: 40, 38, 32;
+    --border-rgb: 55, 52, 44;
   }
 }
 
@@ -71,254 +71,34 @@
   }
 }
 
-/* ============================================
-   RADIX UI OVERLAY Z-INDEX TIERS (Android Chrome Fix)
-   ============================================
-   
-   Purpose: Enforce stable z-index stacking for Radix portal-based overlays
-   to prevent mispositioned/oversized dropdowns and inverted dialog layering
-   on Android Chrome.
-   
-   Tier hierarchy (lowest to highest):
-   1. Dropdown/Popover/Select content: z-50
-   2. Dialog overlay (backdrop): z-60
-   3. Dialog content: z-70
-   4. In-dialog overlays (popovers/selects inside dialogs): z-80
-   
-   Note: Do NOT edit files under frontend/src/components/ui.
-   These overrides are applied globally via usage-site classes and selectors.
-*/
-
-/* Root isolation: Prevent parent stacking-context issues */
-#root {
-  isolation: isolate;
+/* Explicit backdrop styling for Android Chrome compatibility */
+@supports (color: oklch(0% 0 0)) {
+  [data-radix-popper-content-wrapper],
+  [data-radix-select-viewport],
+  [data-radix-dropdown-menu-content],
+  [data-radix-popover-content] {
+    background: oklch(var(--popover));
+  }
 }
 
-/* Tier 1: Base dropdown/popover/select content */
-[data-radix-popper-content-wrapper],
-[data-radix-select-viewport] {
-  z-index: 50 !important;
+/* RGB fallback for Android Chrome */
+@supports not (color: oklch(0% 0 0)) {
+  [data-radix-popper-content-wrapper],
+  [data-radix-select-viewport],
+  [data-radix-dropdown-menu-content],
+  [data-radix-popover-content] {
+    background: rgb(var(--popover-rgb));
+  }
 }
 
-/* Tier 2: Dialog overlay (backdrop) */
+/* Ensure dialog overlays are fully opaque on Android Chrome */
 [data-radix-dialog-overlay] {
-  z-index: 60 !important;
+  background: rgba(0, 0, 0, 0.8) !important;
 }
 
-/* Tier 3: Dialog content */
-[data-radix-dialog-content] {
-  z-index: 70 !important;
-}
-
-/* Tier 4: In-dialog overlays (usage-site class for popovers/selects inside dialogs) */
-.radix-in-dialog-overlay[data-radix-popper-content-wrapper],
-.radix-in-dialog-overlay[data-radix-select-viewport] {
-  z-index: 80 !important;
-}
-
-/* ============================================
-   RADIX UI OVERLAY OPACITY FIX (Mobile Browser Transparency)
-   ============================================
-   
-   Purpose: Force all Radix portal surfaces to be fully opaque on mobile
-   browsers (especially Android Chrome) where default backgrounds may render
-   as transparent or semi-transparent.
-   
-   Strategy: Use RGB fallbacks with @supports for OKLCH to ensure maximum
-   Android Chrome compatibility. Apply explicit opaque backgrounds and full
-   opacity to all Radix portal content wrappers as a global fallback.
-   
-   Critical: Android Chrome may not parse OKLCH colors correctly in all
-   contexts. RGB fallbacks ensure surfaces are always opaque.
-*/
-
-/* Force opaque backgrounds on all Radix dropdown menu content */
-[data-radix-dropdown-menu-content] {
-  opacity: 1 !important;
-  /* RGB fallback for maximum compatibility */
-  background-color: rgb(var(--popover-rgb)) !important;
-  border: 1px solid rgb(var(--border-rgb)) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* OKLCH override for browsers that support it */
-@supports (color: oklch(0% 0 0)) {
-  [data-radix-dropdown-menu-content] {
-    background-color: oklch(var(--popover)) !important;
-    border-color: oklch(var(--border)) !important;
-  }
-}
-
-/* Force opaque backgrounds on all Radix popover content */
-[data-radix-popper-content-wrapper] > [data-radix-popover-content] {
-  opacity: 1 !important;
-  /* RGB fallback for maximum compatibility */
-  background-color: rgb(var(--popover-rgb)) !important;
-  border: 1px solid rgb(var(--border-rgb)) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* OKLCH override for browsers that support it */
-@supports (color: oklch(0% 0 0)) {
-  [data-radix-popper-content-wrapper] > [data-radix-popover-content] {
-    background-color: oklch(var(--popover)) !important;
-    border-color: oklch(var(--border)) !important;
-  }
-}
-
-/* Force opaque backgrounds on all Radix select content */
-[data-radix-select-content] {
-  opacity: 1 !important;
-  /* RGB fallback for maximum compatibility */
-  background-color: rgb(var(--popover-rgb)) !important;
-  border: 1px solid rgb(var(--border-rgb)) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* OKLCH override for browsers that support it */
-@supports (color: oklch(0% 0 0)) {
-  [data-radix-select-content] {
-    background-color: oklch(var(--popover)) !important;
-    border-color: oklch(var(--border)) !important;
-  }
-}
-
-[data-radix-select-viewport] {
-  /* RGB fallback for maximum compatibility */
-  background-color: rgb(var(--popover-rgb)) !important;
-}
-
-/* OKLCH override for browsers that support it */
-@supports (color: oklch(0% 0 0)) {
-  [data-radix-select-viewport] {
-    background-color: oklch(var(--popover)) !important;
-  }
-}
-
-/* Ensure dialog content uses card background */
-[data-radix-dialog-content] {
-  opacity: 1 !important;
-  /* RGB fallback for maximum compatibility */
-  background-color: rgb(var(--card-rgb)) !important;
-  border: 1px solid rgb(var(--border-rgb)) !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* OKLCH override for browsers that support it */
-@supports (color: oklch(0% 0 0)) {
-  [data-radix-dialog-content] {
-    background-color: oklch(var(--card)) !important;
-    border-color: oklch(var(--border)) !important;
-  }
-}
-
-/* ============================================
-   DIALOG OVERLAY VIEWPORT COVERAGE (Android Chrome Backdrop Fix)
-   ============================================
-   
-   Purpose: Ensure dialog overlay/backdrop is consistently visible (non-transparent),
-   covers the full viewport, and sits behind dialog content across all browsers
-   including Android Chrome.
-   
-   Strategy: Use only rgba() color format (not OKLCH) for maximum Android Chrome
-   compatibility. Apply background-color last to prevent it from being overridden
-   by shorthand background property. Use explicit !important on all positioning
-   and visibility properties.
-   
-   Critical: Android Chrome may not render OKLCH colors correctly in overlay
-   contexts. Using rgba() ensures the backdrop is always visible.
-*/
-
-[data-radix-dialog-overlay] {
-  /* Positioning: Full viewport coverage */
-  position: fixed !important;
-  inset: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  
-  /* Layering: Behind dialog content, above page content */
-  z-index: 60 !important;
-  
-  /* Opacity: Fully opaque element (not transparent) */
-  opacity: 1 !important;
-  
-  /* Background: Use rgba for maximum Android Chrome compatibility */
-  /* Light mode: Semi-transparent black backdrop (60% opacity) */
-  background: rgba(0, 0, 0, 0.6) !important;
-  background-color: rgba(0, 0, 0, 0.6) !important;
-}
-
-/* Dark mode: Slightly darker backdrop for better contrast (75% opacity) */
-.dark [data-radix-dialog-overlay] {
-  background: rgba(0, 0, 0, 0.75) !important;
-  background-color: rgba(0, 0, 0, 0.75) !important;
-}
-
-/* ============================================
-   ANDROID CHROME SCROLL LOCK FIX
-   ============================================
-   
-   Purpose: Prevent Android Chrome from leaving scroll-lock styles on body
-   after dropdowns close, which causes the page to become frozen/unscrollable.
-   
-   Strategy: Ensure only dialogs lock scroll, and dropdowns never do.
-   Clean up any leftover scroll-lock attributes defensively.
-*/
-
-/* Ensure body can scroll by default (unless dialog is open) */
-body:not([data-scroll-locked]) {
-  overflow: auto !important;
-  position: static !important;
-  pointer-events: auto !important;
-  touch-action: auto !important;
-}
-
-/* Only lock scroll when dialog is explicitly open */
-body[data-scroll-locked] {
-  overflow: hidden !important;
-  position: fixed !important;
-  width: 100% !important;
-  touch-action: none !important;
-}
-
-/* Ensure dropdown menus never block pointer events on the page */
-[data-radix-dropdown-menu-content] {
-  pointer-events: auto !important;
-}
-
-/* ============================================
-   MOBILE TOUCH SCROLLING (Edit/Delete Record Dialog)
-   ============================================
-   
-   Purpose: Ensure reliable touch scrolling on Android Chrome for the
-   Edit/Delete Record dialog, especially for the edit form.
-   
-   Key behaviors:
-   - .edit-delete-dialog: Dialog container with flex layout
-   - .edit-form-scroll: Native overflow-y-auto for better mobile touch support
-   - Momentum scrolling enabled via -webkit-overflow-scrolling
-   
-   See: frontend/src/docs/manual-qa-edit-delete-record-dialog-scroll.md
-*/
-
-.edit-delete-dialog {
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-}
-
-.edit-form-scroll {
-  overflow-y: auto;
+/* Daily Report scroll container - native overflow for reliable scrolling */
+.daily-report-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-}
-
-/* Ensure ScrollArea (for pickup list) also has momentum scrolling */
-[data-radix-scroll-area-viewport] {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  scroll-behavior: smooth;
 }

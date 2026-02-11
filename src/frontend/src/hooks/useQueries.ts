@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useActorReady } from './useActorReady';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { Pickup, Customer, UserProfile, PaymentMethod, DailyReport, ExportData } from '../backend';
+import type { Pickup, Customer, UserProfile, PaymentMethod, DailyReport, ImportExportData } from '../backend';
 
 const ACTOR_NOT_READY_MESSAGE = 'Connecting to backend—please try again in a moment.';
 
@@ -107,7 +107,7 @@ export function useGetPickupsForDate(fromDate: bigint, toDate: bigint) {
     return useQuery<Pickup[]>({
         queryKey: ['pickups', principal, fromDate.toString(), toDate.toString()],
         queryFn: async () => {
-            if (!actor) return [];
+            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.getPickupsInRange(fromDate, toDate);
         },
         enabled: isReady && !!principal,
@@ -303,7 +303,7 @@ export function useDeletePickup() {
     });
 }
 
-export function useGetDailyReport(fromDate?: bigint, toDate?: bigint, enabled: boolean = false) {
+export function useGetDailyReport(fromDate?: bigint, toDate?: bigint) {
     const { actor } = useActor();
     const { isReady } = useActorReady();
     const { identity } = useInternetIdentity();
@@ -312,26 +312,11 @@ export function useGetDailyReport(fromDate?: bigint, toDate?: bigint, enabled: b
     return useQuery<DailyReport>({
         queryKey: ['dailyReport', principal, fromDate?.toString(), toDate?.toString()],
         queryFn: async () => {
-            if (!actor || !fromDate || !toDate) {
-                return {
-                    dailyTotals: [],
-                    summary: {
-                        totalMeter: 0,
-                        totalCash: 0,
-                        totalCredit: 0,
-                        totalVoucher: 0,
-                        totalTips: 0,
-                        totalCashTips: 0,
-                        totalCreditTips: 0,
-                        totalVoucherTips: 0,
-                        totalCalculated: 0,
-                        totalOwedDriver: 0,
-                    },
-                };
-            }
+            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
+            if (!fromDate || !toDate) throw new Error('Date range is required for daily report');
             return actor.getDailyReport(fromDate, toDate);
         },
-        enabled: isReady && !!principal && !!fromDate && !!toDate && enabled,
+        enabled: isReady && !!principal && !!fromDate && !!toDate,
     });
 }
 
@@ -393,16 +378,23 @@ export function useImportData() {
     const principal = identity?.getPrincipal().toString();
 
     return useMutation({
-        mutationFn: async (data: ExportData) => {
+        mutationFn: async (data: ImportExportData) => {
             if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
             return actor.importData(data);
         },
-        onSuccess: () => {
+        onSuccess: async () => {
+            // Invalidate all pickup-related queries to mark them as stale
             queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
             queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
             queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
             queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
             queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
+            
+            // Force immediate refetch of active pickup queries to update the UI
+            await queryClient.refetchQueries({ 
+                queryKey: ['pickups', principal],
+                type: 'active'
+            });
         },
     });
 }

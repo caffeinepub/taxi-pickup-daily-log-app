@@ -1,56 +1,59 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-10T16:20:29.694Z",
+  "generatedAt": "2026-02-11T00:31:57.981Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 4,
+    "implemented": 4,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Expose actor initialization failures to the UI and add robust retry behavior so the app can recover from transient backend unavailability (especially right after a new build/deploy). Update the actor initialization logic to: (1) surface the underlying error and message, (2) retry with exponential backoff for a finite number of attempts, and (3) allow an explicit user-triggered retry without requiring a full page reload.",
+        "summary": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useBackendActor.tsx",
-          "frontend/src/utils/retryBackoff.ts",
-          "frontend/src/hooks/useActorReady.ts",
-          "frontend/src/App.tsx"
+          "frontend/src/components/DailyReportDialog.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useBackendActor.tsx",
-          "frontend/src/utils/retryBackoff.ts",
-          "frontend/src/hooks/useActorReady.ts",
-          "frontend/src/App.tsx"
+          "frontend/src/components/DailyReportDialog.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Add a lightweight backend health endpoint to distinguish 'backend down/unreachable' from other initialization errors. Implement a public query method (e.g., ping/getStatus) that returns a small stable payload (e.g., 'ok' and/or a timestamp). Use this method from the frontend during actor initialization to verify backend reachability before (or while) running initializeAccessControl, and use the result to improve the error message shown to the user.",
+        "summary": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile (including the reported case where it appears 'not scrollable').",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useBackendActor.tsx",
-          "frontend/src/components/ActorInitializationGate.tsx"
+          "frontend/src/components/DailyReportDialog.tsx",
+          "frontend/src/index.css"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useBackendActor.tsx",
-          "frontend/src/components/ActorInitializationGate.tsx"
+          "frontend/src/components/DailyReportDialog.tsx",
+          "frontend/src/index.css"
         ]
       },
       {
         "id": "REQ-3",
-        "summary": "Improve the Connection Failed screen to show actionable diagnostic details and recovery options for post-deploy scenarios. Include: (1) the extracted error message (sanitized to a stable English string), (2) a clear hint when the browser is offline, and (3) an additional 'Hard refresh' option that forces a cache-busting reload for cases where a stale frontend bundle is incompatible with the newly deployed backend.",
+        "summary": "Keep (or restore) the end-of-period summary section for the selected date range, and ensure its totals match the sum of the displayed daily breakdown totals for the period.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/ActorInitializationGate.tsx",
-          "frontend/src/utils/connectionDiagnostics.ts"
+          "frontend/src/components/DailyReportDialog.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/ActorInitializationGate.tsx",
-          "frontend/src/utils/connectionDiagnostics.ts"
+          "frontend/src/components/DailyReportDialog.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Add/extend a manual regression check document entry specifically for this issue: multi-day daily report after import should show all days with data and be scrollable.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/docs/manual-qa-version-103-regression-checks.md"
+        ],
+        "matchedFiles": [
+          "frontend/src/docs/manual-qa-version-103-regression-checks.md"
         ]
       }
     ]
@@ -61,16 +64,9 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/components/ActorInitializationGate.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/hooks/useActorReady.ts",
-    "frontend/src/hooks/useBackendActor.tsx",
-    "frontend/src/utils/connectionDiagnostics.ts",
-    "frontend/src/utils/retryBackoff.ts",
+    "frontend/src/components/DailyReportDialog.tsx",
+    "frontend/src/docs/manual-qa-version-103-regression-checks.md",
+    "frontend/src/index.css",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",
