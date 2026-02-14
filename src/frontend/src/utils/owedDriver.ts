@@ -1,20 +1,19 @@
+import { computeOwedDriver } from './totals';
+
 /**
- * Calculate the amount owed to the driver based on payment method totals.
+ * Calculate the amount owed to the driver using the canonical formula:
+ * ((creditMeter + voucherMeter - cashMeter) / 2) + creditTips + voucherTips
  * 
- * Formula: ((creditMeter + voucherMeter - cashMeter) / 2) + creditTips + voucherTips
- * 
- * This represents:
- * - Half of the net meter difference (credit + voucher - cash)
- * - Plus all credit tips (driver keeps these)
- * - Plus all voucher tips (driver keeps these)
+ * @deprecated Use computeOwedDriver from utils/totals.ts instead for consistency
  */
 export function calculateOwedDriver(
-  cashMeter: number,
-  creditMeter: number,
-  voucherMeter: number,
-  cashTips: number,
-  creditTips: number,
-  voucherTips: number
+    cashMeter: number,
+    creditMeter: number,
+    voucherMeter: number,
+    cashTips: number,
+    creditTips: number,
+    voucherTips: number
 ): number {
-  return ((creditMeter + voucherMeter - cashMeter) / 2) + creditTips + voucherTips;
+    // Delegate to canonical implementation
+    return computeOwedDriver(cashMeter, creditMeter, voucherMeter, creditTips, voucherTips);
 }

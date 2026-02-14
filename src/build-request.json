@@ -1,109 +1,98 @@
 {
   "kind": "build_request",
-  "title": "Fix Daily Report regression: show one record per day with data + working scrolling + period summary",
+  "title": "Apply canonical Period Total formula everywhere totals are reported; make voucher tips optional",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
+      "text": "Update all places where the app reports a \"Period Total\" (and any other primary total meant to represent the driver’s owed/period amount) to ALWAYS use this canonical formula: ((credit meter + voucher meter − cash meter) ÷ 2) + credit tips + voucher tips.",
       "target": "both",
-      "source": {
-        "messageIds": [
-          "msg-4",
-          "msg-6"
-        ],
-        "quotes": [
-          "Yes, only one record shows on daily report. It should show daily totals for each day in range, just as it used to.",
-          "One record displayed per day. Only show days with data."
-        ]
-      },
-      "acceptanceCriteria": [
-        "Given imported data containing pickups on multiple distinct dates within the selected range, the Daily Report displays a separate daily breakdown card for each date that has pickups.",
-        "The Daily Report does not display any days that have zero pickups in the selected range.",
-        "Daily breakdown cards are sorted chronologically by date.",
-        "The UI does not use a deduplication strategy that can incorrectly drop legitimate days (e.g., if the backend already aggregates by day, the frontend should render the returned days as-is; if dedup is still needed, it must not collapse distinct days)."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile (including the reported case where it appears 'not scrollable').",
-      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "When results of daily report are displayed it just looks like scrolling is not working. Just get first day in range."
+          "It should ALWAYS use that calculation in all places it is reported."
         ]
       },
       "acceptanceCriteria": [
-        "With enough daily breakdown cards to exceed the dialog height, users can scroll within the Daily Report dialog to view all days and the summary.",
-        "Scrolling works using mouse wheel/trackpad and touch scrolling on mobile.",
-        "The dialog content remains within the viewport (no content is rendered off-screen without a way to reach it)."
+        "In the Daily Report screen, the value labeled \"Period Total\" is computed using ((credit meter + voucher meter − cash meter) / 2) + credit tips + voucher tips (not meter+tips).",
+        "For each day row in the Daily Report, the primary per-day total shown to the user uses the same canonical formula.",
+        "Any other UI locations that present a period/daily owed/period total use the same canonical formula (no alternative/legacy computations remain).",
+        "The example from the user’s screenshot scenario produces 731.385 (before currency rounding/formatting) when using the provided inputs."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Fix backend daily report aggregation so that the report fields used by the frontend for per-day totals and summary Period Total are derived from the canonical formula (not from summing per-pickup meterTotal+tip). Ensure the report still returns meter and tip breakdowns by payment method (cash/credit/voucher) as it does today.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-2",
+          "msg-4"
+        ],
+        "quotes": [
+          "First calculation is wrong.",
+          "It should ALWAYS use that calculation in all places it is reported."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Backend getDailyReport computes per-day totals by aggregating meter/tip by payment method, then calculates the per-day canonical total using ((credit + voucher − cash) / 2) + creditTips + voucherTips.",
+        "Backend getDailyReport computes the summary \"Period Total\" using the same canonical formula over the period aggregates (or equivalently by summing per-day canonical totals) and returns that value consistently.",
+        "Existing meter/tip breakdown fields (cash/credit/voucher and total meter/tips) remain available in the response for display."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Keep (or restore) the end-of-period summary section for the selected date range, and ensure its totals match the sum of the displayed daily breakdown totals for the period.",
+      "text": "Make voucher tips supported but optional: the app must allow voucher tips, but must not require voucher tips to be present in imported data or user entry; when absent they must default to 0 and not cause validation/import failures.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "If course show summary at the end for the period."
+          "There are rarely voucher tips. But application should allow them but not require."
         ]
       },
       "acceptanceCriteria": [
-        "The Daily Report shows a 'Summary' section after the daily breakdown list whenever the report returns data.",
-        "Summary totals (meter totals, tip totals, grand total, total owed driver) equal the sum across all included days (days with pickups) for the selected range.",
-        "If no days have pickups in the selected range, the UI shows the existing empty state message and does not show a misleading non-zero summary."
+        "Import: if a pickup’s tip amount and/or tip payment method is missing in imported JSON, the import succeeds by defaulting missing tip amount to 0 and using a sensible default tip payment method (so voucher tips are not required).",
+        "UI entry/edit: users can select voucher as a tip payment method and enter a tip amount, but the UI does not require voucher tips specifically; saving with no voucher tips results in voucher tip totals of 0 in reports.",
+        "When voucher tips are not present, report voucher tip totals display as $0.00 (or equivalent formatting) and do not affect the canonical Period Total calculation beyond adding 0."
       ]
     },
     {
       "id": "REQ-4",
-      "text": "Add/extend a manual regression check document entry specifically for this issue: multi-day daily report after import should show all days with data and be scrollable.",
+      "text": "Ensure the frontend consistently labels and displays the canonical formula-based value as the main reported total (\"Period Total\" / per-day total) and does not accidentally substitute meter+tips totals in those locations.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-3",
-          "msg-4",
-          "msg-6"
+          "msg-2",
+          "msg-4"
         ],
         "quotes": [
-          "Import said it worked. But, only one record shows out if 134 records in last file implemented.",
-          "Yes, only one record shows on daily report. It should show daily totals for each day in range, just as it used to.",
-          "I just want it to work like it used to before it broke."
+          "First calculation is wrong.",
+          "It should ALWAYS use that calculation in all places it is reported."
         ]
       },
       "acceptanceCriteria": [
-        "The repo includes an updated manual QA checklist (can extend the existing daily report multi-day test) that explicitly verifies: (1) import a file with many pickups across many days, (2) open Daily Report for a range covering those days, (3) confirm multiple day cards render and the list scrolls to the end summary."
+        "Daily Report dialog: the \"Period Total\" number corresponds to the canonical formula result from the backend, and matches the backend value exactly (subject only to currency formatting/rounding).",
+        "Daily Report per-day cards: the primary total shown for the day uses the canonical formula result (and is not the sum of meter+tips unless that happens to match).",
+        "If the app still shows meter+tips totals anywhere, it is clearly not presented as the canonical Period Total and does not conflict with the user’s requirement."
       ]
     }
   ],
   "constraints": [
-    "Backend must remain a single Motoko actor in backend/main.mo; do not introduce additional backend services.",
-    "Do not edit frontend immutable paths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*).",
-    "Use English for any user-facing text.",
-    "Preserve existing import behavior (already reports success) unless a change is strictly required to fix daily report correctness."
+    "Backend must remain a single Motoko actor (all logic in backend/main.mo).",
+    "Do not edit any files under frontend/src/components/ui or any frontend immutablePaths listed in SYSTEM_CONTEXT; compose existing components instead.",
+    "Use English for all user-facing text."
   ],
   "nonGoals": [
-    "Adding pagination or infinite scrolling to the Daily Report beyond restoring functional scrolling within the dialog.",
-    "Changing the Export/Import UI/UX or file format beyond what is necessary to make the daily report accurate.",
-    "Adding new report types or additional analytics fields not already present in the daily report payload/UI."
+    "Adding new authentication providers (only Internet Identity supported).",
+    "Adding external databases or third-party services.",
+    "Implementing real-time updates (no WebSockets)."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

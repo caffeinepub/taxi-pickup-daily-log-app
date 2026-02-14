@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { useGetDailyReport } from '../hooks/useQueries';
 import { safeCurrency } from '../utils/numberFormat';
 import { getErrorMessage } from '../utils/errorMessage';
-import type { DailyTotals, ReportSummary } from '../backend';
+import { formatPacificDate } from '../utils/pickupGuards';
 
 interface DailyReportDialogProps {
     open: boolean;
@@ -45,36 +45,6 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
               .filter((daily) => daily.calculatedTotal > 0)
               .sort((a, b) => Number(a.date - b.date))
         : [];
-
-    // Compute period summary from displayed days only
-    const periodSummary: ReportSummary | null = daysWithData.length > 0
-        ? daysWithData.reduce(
-              (acc, daily) => ({
-                  totalMeter: acc.totalMeter + daily.meterTotal,
-                  totalCash: acc.totalCash + daily.cashTotal,
-                  totalCredit: acc.totalCredit + daily.creditTotal,
-                  totalVoucher: acc.totalVoucher + daily.voucherTotal,
-                  totalTips: acc.totalTips + daily.tipTotal,
-                  totalCashTips: acc.totalCashTips + daily.cashTipTotal,
-                  totalCreditTips: acc.totalCreditTips + daily.creditTipTotal,
-                  totalVoucherTips: acc.totalVoucherTips + daily.voucherTipTotal,
-                  totalCalculated: acc.totalCalculated + daily.calculatedTotal,
-                  totalOwedDriver: acc.totalOwedDriver + daily.owedDriver,
-              }),
-              {
-                  totalMeter: 0,
-                  totalCash: 0,
-                  totalCredit: 0,
-                  totalVoucher: 0,
-                  totalTips: 0,
-                  totalCashTips: 0,
-                  totalCreditTips: 0,
-                  totalVoucherTips: 0,
-                  totalCalculated: 0,
-                  totalOwedDriver: 0,
-              }
-          )
-        : null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,13 +139,7 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                                 <>
                                     <div className="space-y-4">
                                         {daysWithData.map((daily) => {
-                                            const date = new Date(Number(daily.date) / 1000000);
-                                            const formattedDate = date.toLocaleDateString('en-US', {
-                                                weekday: 'short',
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                            });
+                                            const formattedDate = formatPacificDate(daily.date);
 
                                             return (
                                                 <div key={daily.date.toString()} className="border rounded-lg p-4 space-y-3">
@@ -225,16 +189,16 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                                                     <Separator />
 
                                                     <div className="flex justify-between items-center">
-                                                        <span className="font-semibold">Daily Total</span>
+                                                        <span className="font-semibold">Grand Total</span>
                                                         <span className="text-lg font-bold text-primary">
                                                             {safeCurrency(daily.calculatedTotal)}
                                                         </span>
                                                     </div>
 
                                                     <div className="flex justify-between items-center">
-                                                        <span className="font-semibold">Owed Driver</span>
+                                                        <span className="font-semibold">Period Total</span>
                                                         <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                                                            {safeCurrency(daily.owedDriver)}
+                                                            {safeCurrency(daily.periodTotal)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -242,7 +206,7 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                                         })}
                                     </div>
 
-                                    {periodSummary && (
+                                    {report?.summary && (
                                         <>
                                             <Separator className="my-6" />
 
@@ -253,19 +217,19 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                                     <div>
                                                         <p className="text-muted-foreground">Total Cash Meter</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalCash)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalCash)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Credit Meter</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalCredit)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalCredit)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Voucher Meter</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalVoucher)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalVoucher)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Meter</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalMeter)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalMeter)}</p>
                                                     </div>
                                                 </div>
 
@@ -274,33 +238,35 @@ export default function DailyReportDialog({ open, onOpenChange }: DailyReportDia
                                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                                     <div>
                                                         <p className="text-muted-foreground">Total Cash Tips</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalCashTips)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalCashTips)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Credit Tips</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalCreditTips)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalCreditTips)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Voucher Tips</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalVoucherTips)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalVoucherTips)}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">Total Tips</p>
-                                                        <p className="font-medium">{safeCurrency(periodSummary.totalTips)}</p>
+                                                        <p className="font-medium">{safeCurrency(report.summary.totalTips)}</p>
                                                     </div>
                                                 </div>
 
                                                 <Separator />
 
-                                                <div className="flex justify-between items-center text-xl font-bold">
-                                                    <span>Grand Total</span>
-                                                    <span className="text-primary">{safeCurrency(periodSummary.totalCalculated)}</span>
+                                                <div className="flex justify-between items-center pt-2">
+                                                    <span className="font-bold text-lg">Grand Total</span>
+                                                    <span className="text-2xl font-bold text-primary">
+                                                        {safeCurrency(report.summary.totalCalculated)}
+                                                    </span>
                                                 </div>
 
-                                                <div className="flex justify-between items-center text-xl font-bold">
-                                                    <span>Total Owed Driver</span>
-                                                    <span className="text-green-600 dark:text-green-400">
-                                                        {safeCurrency(periodSummary.totalOwedDriver)}
+                                                <div className="flex justify-between items-center pt-2">
+                                                    <span className="font-bold text-lg">Period Total</span>
+                                                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                                        {safeCurrency(report.summary.periodTotal)}
                                                     </span>
                                                 </div>
                                             </div>

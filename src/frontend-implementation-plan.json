@@ -1,73 +1,79 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Daily Report regression fix: correct per-day rendering, reliable dialog scrolling, and accurate period summary",
+  "title": "Canonical Period Total reporting + optional voucher tips (frontend)",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Render the Daily Report as one card per distinct calendar day with pickups (no incorrect dedup/collapse), sorted chronologically.",
+      "summary": "Ensure all frontend-reported Period Total / primary owed totals use the canonical formula-based value provided by the report, not legacy meter+tips totals.",
       "acceptanceCriteria": [
-        "Given imported data containing pickups on multiple distinct dates within the selected range, the Daily Report displays a separate daily breakdown card for each date that has pickups.",
-        "The Daily Report does not display any days that have zero pickups in the selected range.",
-        "Daily breakdown cards are sorted chronologically by date.",
-        "The UI does not use a deduplication strategy that can incorrectly drop legitimate days (e.g., if the backend already aggregates by day, the frontend should render the returned days as-is; if dedup is still needed, it must not collapse distinct days)."
+        "In the Daily Report screen, the value labeled \"Period Total\" is computed using ((credit meter + voucher meter − cash meter) / 2) + credit tips + voucher tips (not meter+tips).",
+        "For each day row in the Daily Report, the primary per-day total shown to the user uses the same canonical formula.",
+        "Any other UI locations that present a period/daily owed/period total use the same canonical formula (no alternative/legacy computations remain).",
+        "The example from the user’s screenshot scenario produces 731.385 (before currency rounding/formatting) when using the provided inputs."
       ],
       "file_operations": [
         {
           "path": "frontend/src/components/DailyReportDialog.tsx",
           "operation": "modify",
-          "description": "Remove/replace the current Map-based deduplication keyed by daily.date (which can collapse multiple days). Instead, render the backend-returned daily totals as-is (no dedup), then apply: (1) filter to only days with data (non-zero totals), and (2) stable chronological sort by date. Ensure each rendered card key is unique per day (e.g., the day timestamp string)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Make the Daily Report dialog reliably scrollable on desktop and mobile so all day cards and the summary are reachable.",
-      "acceptanceCriteria": [
-        "With enough daily breakdown cards to exceed the dialog height, users can scroll within the Daily Report dialog to view all days and the summary.",
-        "Scrolling works using mouse wheel/trackpad and touch scrolling on mobile.",
-        "The dialog content remains within the viewport (no content is rendered off-screen without a way to reach it)."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/DailyReportDialog.tsx",
-          "operation": "modify",
-          "description": "Replace the ScrollArea-based report container with a native overflow scroll region (e.g., a flex child with min-h-0 + overflow-y-auto) to avoid Radix scroll/viewport issues. Ensure the scroll container is the only element that scrolls inside the dialog and that the header/date controls remain visible above it."
+          "description": "Change the displayed per-day primary total and the summary \"Period Total\" to use the report’s canonical total fields (e.g., daily.periodTotal and report.summary.periodTotal) rather than legacy fields like calculatedTotal/totalCalculated; ensure any remaining meter+tips totals are not presented as the primary Period Total."
         },
         {
-          "path": "frontend/src/index.css",
+          "path": "frontend/src/components/PickupList.tsx",
           "operation": "modify",
-          "description": "Add a small, usage-site CSS utility/class for the Daily Report scroll container to ensure consistent mobile touch scrolling (e.g., -webkit-overflow-scrolling: touch and overscroll-behavior: contain), without modifying any files under frontend/src/components/ui/*."
+          "description": "Audit the daily totals card to ensure any primary owed/period-style total shown is the canonical owed-driver calculation (not meter+tips); keep meter+tips totals clearly labeled as non-Period-Total (e.g., \"Grand Total\")."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Restore/keep the end-of-period Summary and ensure its totals equal the sum of the displayed daily totals for the selected range (and hide it for empty results).",
+      "summary": "Support voucher tips as optional in import and UI entry/edit flows by defaulting missing tip fields to zero without validation failures.",
       "acceptanceCriteria": [
-        "The Daily Report shows a 'Summary' section after the daily breakdown list whenever the report returns data.",
-        "Summary totals (meter totals, tip totals, grand total, total owed driver) equal the sum across all included days (days with pickups) for the selected range.",
-        "If no days have pickups in the selected range, the UI shows the existing empty state message and does not show a misleading non-zero summary."
+        "Import: if a pickup’s tip amount and/or tip payment method is missing in imported JSON, the import succeeds by defaulting missing tip amount to 0 and using a sensible default tip payment method (so voucher tips are not required).",
+        "UI entry/edit: users can select voucher as a tip payment method and enter a tip amount, but the UI does not require voucher tips specifically; saving with no voucher tips results in voucher tip totals of 0 in reports.",
+        "When voucher tips are not present, report voucher tip totals display as $0.00 (or equivalent formatting) and do not affect the canonical Period Total calculation beyond adding 0."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/DailyReportDialog.tsx",
+          "path": "frontend/src/utils/importNormalization.ts",
           "operation": "modify",
-          "description": "Compute a period summary on the frontend by summing exactly the displayed (filtered) daily totals, and render the Summary section from this computed aggregate. Only show the Summary section when there is at least one displayed day; keep the existing empty-state message when none."
+          "description": "Update import normalization to treat missing tip and/or tipPaymentMethod as optional: default missing tip to 0 and default missing tipPaymentMethod to a sensible value (e.g., the pickup’s meterPaymentMethod, otherwise cash) instead of throwing validation errors."
+        },
+        {
+          "path": "frontend/src/components/ExportImportDialog.tsx",
+          "operation": "modify",
+          "description": "Ensure the import UI path uses the updated normalization behavior and presents any remaining import errors without implying tips (including voucher tips) are required."
+        },
+        {
+          "path": "frontend/src/components/EditDeleteRecordDialog.tsx",
+          "operation": "modify",
+          "description": "Ensure edit/save validation does not require tip or tip payment method beyond backend requirements: allow empty tip input to be treated as 0 and keep tip payment method selectable (including voucher) without forcing voucher tips."
+        },
+        {
+          "path": "frontend/src/components/PickupForm.tsx",
+          "operation": "modify",
+          "description": "Confirm the pickup entry form continues to treat tip as optional (empty => 0) and keeps voucher available as a tip payment method without adding any requirement to enter voucher tips."
         }
       ]
     },
     {
       "id": "REQ-4",
-      "summary": "Update the manual regression checklist to explicitly cover the multi-day Daily Report after import, including scrolling to the end summary.",
+      "summary": "Align frontend labeling so the canonical formula-based value is consistently shown as the main Period Total / per-day total, without substituting meter+tips totals.",
       "acceptanceCriteria": [
-        "The repo includes an updated manual QA checklist (can extend the existing daily report multi-day test) that explicitly verifies: (1) import a file with many pickups across many days, (2) open Daily Report for a range covering those days, (3) confirm multiple day cards render and the list scrolls to the end summary."
+        "Daily Report dialog: the \"Period Total\" number corresponds to the canonical formula result from the backend, and matches the backend value exactly (subject only to currency formatting/rounding).",
+        "Daily Report per-day cards: the primary total shown for the day uses the canonical formula result (and is not the sum of meter+tips unless that happens to match).",
+        "If the app still shows meter+tips totals anywhere, it is clearly not presented as the canonical Period Total and does not conflict with the user’s requirement."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/docs/manual-qa-version-103-regression-checks.md",
+          "path": "frontend/src/components/DailyReportDialog.tsx",
           "operation": "modify",
-          "description": "Extend the Daily Report multi-day regression test to explicitly include an import step (many pickups across many days) and a verification step that the Daily Report dialog scrolls to reach the final Summary section on both desktop and mobile."
+          "description": "Update labels and displayed values so the canonical total is the primary displayed per-day total and the summary \"Period Total\"; if legacy totals remain visible, ensure they are clearly labeled as meter+tips (non-Period-Total) to avoid confusion."
+        },
+        {
+          "path": "frontend/src/utils/totals.ts",
+          "operation": "modify",
+          "description": "Keep the canonical formula utility (computeOwedDriver) as the single source of truth for any client-side owed/period computations used in the UI, and ensure naming/exports make it difficult to accidentally use meter+tips totals as Period Total."
         }
       ]
     }

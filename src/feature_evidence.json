@@ -2,8 +2,8 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-fix-the-daily-report-so-it-reliably-returns-and-displays-one-aggregated-record-per-calendar-day-within-the-selected-date-range-for-days-that-have-pickups-and-it-does-not-collapse-multiple-days-into-a-single-displayed-day",
-      "featureTitle": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
+      "featureId": "feature-update-all-places-where-the-app-reports-a-period-total-and-any-other-primary-total-meant-to-represent-the-driver-s-owed-period-amount-to-always-use-this-canonical-formula-credit-meter-voucher-meter-cash-meter-2-credit-tips-voucher-tips",
+      "featureTitle": "Update all places where the app reports a \"Period Total\" (and any other primary total meant to represent the driver’s owed/period amount) to ALWAYS use this canonical formula: ((credit meter + voucher meter − cash meter) ÷ 2) + credit tips + voucher tips.",
       "files": [
         "frontend/src/components/DailyReportDialog.tsx"
       ],
@@ -22,31 +22,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-the-daily-report-dialog-supports-scrolling-so-all-daily-breakdown-cards-and-the-final-summary-are-reachable-on-both-desktop-and-mobile-including-the-reported-case-where-it-appears-not-scrollable",
-      "featureTitle": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile (including the reported case where it appears 'not scrollable').",
+      "featureId": "feature-make-voucher-tips-supported-but-optional-the-app-must-allow-voucher-tips-but-must-not-require-voucher-tips-to-be-present-in-imported-data-or-user-entry-when-absent-they-must-default-to-0-and-not-cause-validation-import-failures",
+      "featureTitle": "Make voucher tips supported but optional: the app must allow voucher tips, but must not require voucher tips to be present in imported data or user entry; when absent they must default to 0 and not cause validation/import failures.",
       "files": [
-        "frontend/src/components/DailyReportDialog.tsx",
-        "frontend/src/index.css"
-      ],
-      "components": [
-        "authorization@1.0.1",
-        "blob-storage@2.0.3",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-keep-or-restore-the-end-of-period-summary-section-for-the-selected-date-range-and-ensure-its-totals-match-the-sum-of-the-displayed-daily-breakdown-totals-for-the-period",
-      "featureTitle": "Keep (or restore) the end-of-period summary section for the selected date range, and ensure its totals match the sum of the displayed daily breakdown totals for the period.",
-      "files": [
-        "frontend/src/components/DailyReportDialog.tsx"
+        "frontend/src/utils/importNormalization.ts"
       ],
       "components": [
         "authorization@1.0.1",
@@ -63,10 +42,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-extend-a-manual-regression-check-document-entry-specifically-for-this-issue-multi-day-daily-report-after-import-should-show-all-days-with-data-and-be-scrollable",
-      "featureTitle": "Add/extend a manual regression check document entry specifically for this issue: multi-day daily report after import should show all days with data and be scrollable.",
+      "featureId": "feature-ensure-the-frontend-consistently-labels-and-displays-the-canonical-formula-based-value-as-the-main-reported-total-period-total-per-day-total-and-does-not-accidentally-substitute-meter-tips-totals-in-those-locations",
+      "featureTitle": "Ensure the frontend consistently labels and displays the canonical formula-based value as the main reported total (\"Period Total\" / per-day total) and does not accidentally substitute meter+tips totals in those locations.",
       "files": [
-        "frontend/src/docs/manual-qa-version-103-regression-checks.md"
+        "frontend/src/components/DailyReportDialog.tsx"
       ],
       "components": [
         "authorization@1.0.1",

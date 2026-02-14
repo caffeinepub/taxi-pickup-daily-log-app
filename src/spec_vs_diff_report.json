@@ -1,48 +1,80 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-11T00:31:57.979Z",
-  "summary": "Diff includes updates to DailyReportDialog rendering/summary logic, adds/extends a manual QA checklist entry for multi-day import + scrolling, and adds CSS for a daily report scroll container plus a number of unrelated UI/theme/Android-Chrome compatibility changes. Backend daily aggregation correctness is not verifiable from the truncated backend diff.",
+  "generatedAt": "2026-02-14T21:57:08.923Z",
+  "summary": "Diff shows frontend Daily Report dialog updated to display a backend-provided canonical \"Period Total\" and import normalization now defaults missing tip fields, but the backend aggregation changes for getDailyReport and UI support for entering voucher tips are not evidenced in the provided diff summary. Several unrelated UI/UX and styling changes appear to have been added.",
   "missing_requirements": [
     {
-      "id": "REQ-1",
-      "requirement": "Fix the Daily Report so it reliably returns and displays one aggregated record per calendar day (within the selected date range) for days that have pickups, and it does not collapse multiple days into a single displayed day.",
-      "reason": "The backend portion of the fix (reliably returning one aggregated record per calendar day) cannot be confirmed from the provided diff because backend/main.mo is truncated before any daily report aggregation logic is shown. On the frontend, days are filtered by `calculatedTotal > 0`, which may exclude a day that has pickups but totals to 0 (e.g., zero-fare/zero-tip records), which is not equivalent to 'days that have pickups'.",
+      "id": "REQ-2",
+      "requirement": "Fix backend daily report aggregation so per-day totals and summary Period Total are derived from the canonical formula and retain meter/tip breakdowns by payment method.",
+      "reason": "backend/main.mo is truncated and contains no visible changes to getDailyReport aggregation logic; the diff summary does not provide evidence that the backend now computes per-day and summary periodTotal using the canonical formula.",
       "evidence": [
-        "backend/main.mo (truncated; daily report implementation not shown)",
-        "frontend/src/components/DailyReportDialog.tsx (filters days via `daily.calculatedTotal > 0`)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-2",
-      "requirement": "Ensure the Daily Report dialog supports scrolling so all daily breakdown cards and the final summary are reachable on both desktop and mobile.",
-      "reason": "CSS for a scroll container (`.daily-report-scroll`) is added, and the dialog content has a max height, but the truncated DailyReportDialog.tsx snippet does not show the actual scrollable wrapper (e.g., an element with `overflow-y-auto` / applying `.daily-report-scroll`). Therefore, functional scrolling within the dialog cannot be verified from the provided excerpt.",
+      "id": "REQ-3",
+      "requirement": "UI entry/edit must support voucher as a tip payment method and voucher tips must be optional (default 0 when absent) without validation failures.",
+      "reason": "Import normalization shows missing tip/tipPaymentMethod defaulting behavior, but there is no evidence in the diff summary that the Pickup entry/edit UI allows selecting voucher as tip payment method or that UI validation was updated accordingly.",
       "evidence": [
-        "frontend/src/index.css (adds `.daily-report-scroll` styling)",
-        "frontend/src/components/DailyReportDialog.tsx (truncated; scroll container usage not visible)"
+        "frontend/src/utils/importNormalization.ts (truncated)",
+        "frontend-file-summaries.txt (PickupForm/EditDeleteRecordDialog summaries do not mention voucher tip entry)"
+      ]
+    },
+    {
+      "id": "REQ-1",
+      "requirement": "Update all places where the app reports a primary owed/period total to always use the canonical formula everywhere (no legacy computations remain).",
+      "reason": "Evidence is provided for DailyReportDialog using canonical periodTotal, but the diff summary does not conclusively show all other locations that present a primary owed/period total have been updated (e.g., any other screens/reports besides Daily Report).",
+      "evidence": [
+        "frontend-file-summaries.txt (only explicitly calls out DailyReportDialog; other components mention totals but not the canonical formula)"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "requirement": "Frontend consistently labels and displays the canonical formula-based value as the main reported total and does not substitute meter+tips in those locations.",
+      "reason": "DailyReportDialog summary indicates Period Total uses canonical value and Grand Total uses meter+tips, but the diff summary does not provide enough detail to verify that all other per-day/period total displays across the app are consistently using the canonical value and are labeled to avoid confusion.",
+      "evidence": [
+        "frontend/src/components/DailyReportDialog.tsx (truncated)",
+        "frontend-file-summaries.txt"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Significant theme/OKLCH color system changes and Android Chrome-specific overlay/popover opacity fallbacks.",
-      "reason": "Not requested by any REQ; the BuildRequest focuses on Daily Report aggregation/display, scrolling, summary correctness, and adding a manual regression checklist entry.",
+      "description": "Android Chrome/Radix overlay opacity, scroll-lock, and dropdown/modal behavior fixes across multiple components and global CSS.",
+      "reason": "Not requested by the BuildRequest, which focuses on totals formula consistency and voucher tips optionality.",
       "evidence": [
-        "frontend/src/index.css (OKLCH variables, RGB fallbacks, Radix surface background rules, dialog overlay opacity rules)"
+        "frontend/src/index.css (per frontend-file-summaries.txt)",
+        "frontend/src/App.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/Header.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/CustomerLookup.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/DeleteAllRecordsDialog.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/GeneratePDFDialog.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/CycleBalanceDialog.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/AboutDialog.tsx (per frontend-file-summaries.txt)"
       ]
     },
     {
-      "description": "Changes to other UI flows (pickup form validation relaxation, dropdown/modal behavior, various dialog styling, query invalidation behavior) unrelated to daily report regression requirements.",
-      "reason": "Not requested; BuildRequest explicitly limits scope to fixing daily report correctness/scrolling/summary and adding manual QA coverage, and notes non-goals around unrelated UI/UX changes.",
+      "description": "React Query hook restructuring/backward-compatible aliases, new cache invalidation behavior, and separate hooks for single-day vs range pickup fetching.",
+      "reason": "Not requested; requirements do not mention query-layer refactors.",
       "evidence": [
-        "frontend-file-summaries.txt (describes changes to App.tsx, Header.tsx, PickupForm.tsx, CustomerLookup.tsx, PickupList.tsx, hooks/useQueries.ts, and multiple other dialogs)"
+        "frontend/src/hooks/useQueries.ts (per frontend-file-summaries.txt)"
       ]
     },
     {
-      "description": "Project tracking metadata changes (project_state.json entries/status).",
-      "reason": "Not requested in the BuildRequest.",
+      "description": "Login and account setup UX changes (new messaging, connecting state gating).",
+      "reason": "Not requested; authentication provider changes were explicitly a non-goal and no login UX changes were requested.",
       "evidence": [
-        "project_state.json"
+        "frontend/src/pages/LoginPage.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/pages/AccountSetupPage.tsx (per frontend-file-summaries.txt)"
+      ]
+    },
+    {
+      "description": "PickupForm and record dialogs changes unrelated to totals formula/voucher tips (12-hour time picker, Pacific time conversion, default current time behavior, 30-day pickup history).",
+      "reason": "Not requested by the BuildRequest.",
+      "evidence": [
+        "frontend/src/components/PickupForm.tsx (per frontend-file-summaries.txt)",
+        "frontend/src/components/EditDeleteRecordDialog.tsx (per frontend-file-summaries.txt)"
       ]
     }
   ],
@@ -51,8 +83,7 @@
     "backend/main.mo",
     "frontend-file-summaries.txt",
     "frontend/src/components/DailyReportDialog.tsx",
-    "frontend/src/docs/manual-qa-version-103-regression-checks.md",
-    "frontend/src/index.css",
+    "frontend/src/utils/importNormalization.ts",
     "project_state.json"
   ]
 }

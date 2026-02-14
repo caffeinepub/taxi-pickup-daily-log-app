@@ -1,188 +1,70 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
-import { useActorReady } from './useActorReady';
-import { useInternetIdentity } from './useInternetIdentity';
-import type { Pickup, Customer, UserProfile, PaymentMethod, DailyReport, ImportExportData } from '../backend';
+import { PaymentMethod, type UserProfile, type ImportExportData } from '../backend';
+import { getDayIdentifier } from '../utils/pickupGuards';
 
-const ACTOR_NOT_READY_MESSAGE = 'Connecting to backend—please try again in a moment.';
+export function useGetCallerUserProfile() {
+    const { actor, isFetching: actorFetching } = useActor();
 
-export function useGetProfile() {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<UserProfile | null>({
-        queryKey: ['profile', principal],
+    const query = useQuery<UserProfile | null>({
+        queryKey: ['currentUserProfile'],
         queryFn: async () => {
-            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            if (identity) {
-                return actor.getCallerUserProfile();
-            }
-            return null;
+            if (!actor) throw new Error('Actor not available');
+            return actor.getCallerUserProfile();
         },
-        enabled: isReady && !!identity,
+        enabled: !!actor && !actorFetching,
+        retry: false,
     });
+
+    return {
+        ...query,
+        isLoading: actorFetching || query.isLoading,
+        isFetched: !!actor && query.isFetched,
+    };
 }
 
-export function useSetupProfile() {
+// Alias for backward compatibility
+export const useGetProfile = useGetCallerUserProfile;
+
+export function useSaveProfile() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
-        mutationFn: async ({
-            driverName,
-            contactInfo,
-            email,
-        }: {
-            driverName: string;
-            contactInfo: string;
-            email?: string;
-        }) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            
-            const profile: UserProfile = {
-                driverName,
-                contactInfo,
-            };
-            
-            if (email && email.trim()) {
-                profile.email = email.trim();
-            }
-            
+        mutationFn: async (profile: UserProfile) => {
+            if (!actor) throw new Error('Actor not available');
             return actor.saveCallerUserProfile(profile);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['profile', principal] });
+            queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
         },
     });
 }
+
+// Alias for backward compatibility
+export const useSetupProfile = useSaveProfile;
 
 export function useUpdateProfile() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
-        mutationFn: async ({
-            driverName,
-            contactInfo,
-            email,
-        }: {
-            driverName: string;
-            contactInfo: string;
-            email?: string;
-        }) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            
-            const profile: UserProfile = {
-                driverName,
-                contactInfo,
-            };
-            
-            if (email && email.trim()) {
-                profile.email = email.trim();
-            }
-            
+        mutationFn: async (profile: UserProfile) => {
+            if (!actor) throw new Error('Actor not available');
             return actor.saveCallerUserProfile(profile);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['profile', principal] });
+            queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
         },
-    });
-}
-
-export function useGetPickupsForDate(fromDate: bigint, toDate: bigint) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<Pickup[]>({
-        queryKey: ['pickups', principal, fromDate.toString(), toDate.toString()],
-        queryFn: async () => {
-            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            return actor.getPickupsInRange(fromDate, toDate);
-        },
-        enabled: isReady && !!principal,
-    });
-}
-
-export function useGetCustomerSuggestions(partialInput: string) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<Customer[]>({
-        queryKey: ['customerSuggestions', principal, partialInput],
-        queryFn: async () => {
-            if (!actor || !partialInput.trim()) return [];
-            return actor.getCustomerSuggestions(partialInput.trim());
-        },
-        enabled: isReady && !!principal && partialInput.trim().length > 0,
-    });
-}
-
-export function useFindCustomerByAddress(streetAddress: string, city: string) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<Customer | null>({
-        queryKey: ['customerByAddress', principal, streetAddress, city],
-        queryFn: async () => {
-            if (!actor || !streetAddress.trim()) return null;
-            return actor.findCustomerByAddress(streetAddress.trim(), city.trim());
-        },
-        enabled: isReady && !!principal && streetAddress.trim().length > 0,
-    });
-}
-
-export function useFindCustomerByPhoneNumber(phoneNumber: string) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<Customer | null>({
-        queryKey: ['customerByPhoneNumber', principal, phoneNumber],
-        queryFn: async () => {
-            if (!actor || !phoneNumber.trim()) return null;
-            return actor.findCustomerByPhoneNumber(phoneNumber.trim());
-        },
-        enabled: isReady && !!principal && phoneNumber.trim().length > 0,
     });
 }
 
 export function useRecordPickup() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
-        mutationFn: async ({
-            pickupDate,
-            streetAddress,
-            city,
-            customerName,
-            phoneNumber,
-            pickupTime,
-            destinationAddress,
-            meterTotal,
-            paymentMethod,
-            tip,
-            tipPaymentMethod,
-        }: {
+        mutationFn: async (params: {
             pickupDate: bigint;
             streetAddress: string;
             city: string;
@@ -195,53 +77,106 @@ export function useRecordPickup() {
             tip: number;
             tipPaymentMethod: PaymentMethod;
         }) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
+            if (!actor) throw new Error('Actor not available');
             return actor.recordPickup(
-                pickupDate,
-                streetAddress,
-                city,
-                customerName,
-                phoneNumber,
-                pickupTime,
-                destinationAddress,
-                meterTotal,
-                paymentMethod,
-                tip,
-                tipPaymentMethod
+                params.pickupDate,
+                params.streetAddress,
+                params.city,
+                params.customerName,
+                params.phoneNumber,
+                params.pickupTime,
+                params.destinationAddress,
+                params.meterTotal,
+                params.paymentMethod,
+                params.tip,
+                params.tipPaymentMethod
             );
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
-            queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
+            queryClient.invalidateQueries({ queryKey: ['pickups'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['dailyReport'] });
+        },
+    });
+}
+
+export function useGetPickupsForDate(selectedDate: Date) {
+    const { actor, isFetching: actorFetching } = useActor();
+    const dayId = getDayIdentifier(selectedDate);
+
+    return useQuery({
+        queryKey: ['pickups', 'date', dayId],
+        queryFn: async () => {
+            if (!actor) throw new Error('Actor not available');
+            const dateNanos = BigInt(selectedDate.getTime()) * BigInt(1000000);
+            return actor.getPickupsForDate(dateNanos);
+        },
+        enabled: !!actor && !actorFetching,
+    });
+}
+
+export function useGetPickupsInRange(fromDate: bigint, toDate: bigint) {
+    const { actor, isFetching: actorFetching } = useActor();
+
+    return useQuery({
+        queryKey: ['pickups', 'range', fromDate.toString(), toDate.toString()],
+        queryFn: async () => {
+            if (!actor) throw new Error('Actor not available');
+            return actor.getPickupsInRange(fromDate, toDate);
+        },
+        enabled: !!actor && !actorFetching,
+    });
+}
+
+export function useGetCustomerSuggestions(partialInput: string) {
+    const { actor, isFetching: actorFetching } = useActor();
+
+    return useQuery({
+        queryKey: ['customers', 'suggestions', partialInput],
+        queryFn: async () => {
+            if (!actor) throw new Error('Actor not available');
+            return actor.getCustomerSuggestions(partialInput);
+        },
+        enabled: !!actor && !actorFetching && partialInput.length > 0,
+    });
+}
+
+export function useGetDailyReport(fromDate: bigint, toDate: bigint) {
+    const { actor, isFetching: actorFetching } = useActor();
+
+    return useQuery({
+        queryKey: ['dailyReport', fromDate.toString(), toDate.toString()],
+        queryFn: async () => {
+            if (!actor) throw new Error('Actor not available');
+            return actor.getDailyReport(fromDate, toDate);
+        },
+        enabled: !!actor && !actorFetching,
+    });
+}
+
+export function useDeleteAllRecords() {
+    const { actor } = useActor();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => {
+            if (!actor) throw new Error('Actor not available');
+            return actor.deleteAllRecords();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pickups'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['dailyReport'] });
         },
     });
 }
 
 export function useUpdatePickup() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
-        mutationFn: async ({
-            pickupId,
-            pickupDate,
-            streetAddress,
-            city,
-            customerName,
-            phoneNumber,
-            pickupTime,
-            destinationAddress,
-            meterTotal,
-            meterPaymentMethod,
-            tip,
-            tipPaymentMethod,
-        }: {
+        mutationFn: async (params: {
             pickupId: bigint;
             pickupDate: bigint;
             streetAddress: string;
@@ -251,150 +186,91 @@ export function useUpdatePickup() {
             pickupTime: bigint;
             destinationAddress: string;
             meterTotal: number;
-            meterPaymentMethod: PaymentMethod;
+            paymentMethod: PaymentMethod;
             tip: number;
             tipPaymentMethod: PaymentMethod;
         }) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
+            if (!actor) throw new Error('Actor not available');
             return actor.updatePickup(
-                pickupId,
-                pickupDate,
-                streetAddress,
-                city,
-                customerName,
-                phoneNumber,
-                pickupTime,
-                destinationAddress,
-                meterTotal,
-                meterPaymentMethod,
-                tip,
-                tipPaymentMethod
+                params.pickupId,
+                params.pickupDate,
+                params.streetAddress,
+                params.city,
+                params.customerName,
+                params.phoneNumber,
+                params.pickupTime,
+                params.destinationAddress,
+                params.meterTotal,
+                params.paymentMethod,
+                params.tip,
+                params.tipPaymentMethod
             );
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
-            queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
+            queryClient.invalidateQueries({ queryKey: ['pickups'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['dailyReport'] });
         },
     });
 }
 
 export function useDeletePickup() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
         mutationFn: async (pickupId: bigint) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
+            if (!actor) throw new Error('Actor not available');
             return actor.deletePickup(pickupId);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
-            queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
+            queryClient.invalidateQueries({ queryKey: ['pickups'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['dailyReport'] });
         },
     });
 }
 
-export function useGetDailyReport(fromDate?: bigint, toDate?: bigint) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
+export function useGetCycleBalance() {
+    const { actor, isFetching: actorFetching } = useActor();
 
-    return useQuery<DailyReport>({
-        queryKey: ['dailyReport', principal, fromDate?.toString(), toDate?.toString()],
+    return useQuery({
+        queryKey: ['cycleBalance'],
         queryFn: async () => {
-            if (!actor) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            if (!fromDate || !toDate) throw new Error('Date range is required for daily report');
-            return actor.getDailyReport(fromDate, toDate);
-        },
-        enabled: isReady && !!principal && !!fromDate && !!toDate,
-    });
-}
-
-export function useDeleteAllRecords() {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
-
-    return useMutation({
-        mutationFn: async () => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
-            return actor.deleteAllRecords();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
-            queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
-        },
-    });
-}
-
-export function useGetCycleBalance(refreshKey: number = 0) {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
-    const principal = identity?.getPrincipal().toString();
-
-    return useQuery<bigint>({
-        queryKey: ['cycleBalance', principal, refreshKey],
-        queryFn: async () => {
-            if (!actor) return BigInt(0);
+            if (!actor) throw new Error('Actor not available');
             return actor.getCycleBalance();
         },
-        enabled: isReady && !!principal,
+        enabled: !!actor && !actorFetching,
     });
 }
 
 export function useExportData() {
-    const { actor } = useActor();
-    const { isReady } = useActorReady();
+    const { actor, isFetching: actorFetching } = useActor();
 
-    return useMutation({
-        mutationFn: async () => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
+    return useQuery({
+        queryKey: ['exportData'],
+        queryFn: async () => {
+            if (!actor) throw new Error('Actor not available');
             return actor.exportData();
         },
+        enabled: false,
     });
 }
 
 export function useImportData() {
     const { actor } = useActor();
-    const { isReady } = useActorReady();
-    const { identity } = useInternetIdentity();
     const queryClient = useQueryClient();
-    const principal = identity?.getPrincipal().toString();
 
     return useMutation({
         mutationFn: async (data: ImportExportData) => {
-            if (!actor || !isReady) throw new Error(ACTOR_NOT_READY_MESSAGE);
+            if (!actor) throw new Error('Actor not available');
             return actor.importData(data);
         },
-        onSuccess: async () => {
-            // Invalidate all pickup-related queries to mark them as stale
-            queryClient.invalidateQueries({ queryKey: ['pickups', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerSuggestions', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByAddress', principal] });
-            queryClient.invalidateQueries({ queryKey: ['customerByPhoneNumber', principal] });
-            queryClient.invalidateQueries({ queryKey: ['dailyReport', principal] });
-            
-            // Force immediate refetch of active pickup queries to update the UI
-            await queryClient.refetchQueries({ 
-                queryKey: ['pickups', principal],
-                type: 'active'
-            });
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pickups'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['dailyReport'] });
+            queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
         },
     });
 }

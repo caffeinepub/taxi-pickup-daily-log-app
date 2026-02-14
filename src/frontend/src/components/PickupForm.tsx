@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,11 @@ import { useRecordPickup } from '../hooks/useQueries';
 import { PaymentMethod, type Customer } from '../backend';
 import { toast } from 'sonner';
 import CustomerLookup from './CustomerLookup';
+import TimePicker12h from './TimePicker12h';
 import { useActorReady } from '../hooks/useActorReady';
 import { safeParseFloat } from '../utils/numberFormat';
 import { getErrorMessage } from '../utils/errorMessage';
+import { getCurrentPacificTime, pacificTimeToNanos, getPacificDayGrouping } from '../utils/pickupGuards';
 
 interface PickupFormProps {
     selectedDate: Date;
@@ -23,7 +25,7 @@ interface PickupFormProps {
 
 export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFormProps) {
     const [pickupDate, setPickupDate] = useState<Date>(selectedDate);
-    const [pickupTime, setPickupTime] = useState('');
+    const [pickupTime, setPickupTime] = useState(getCurrentPacificTime());
     const [customerName, setCustomerName] = useState('');
     const [streetAddress, setStreetAddress] = useState('');
     const [city, setCity] = useState('');
@@ -33,9 +35,22 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
     const [meterPaymentMethod, setMeterPaymentMethod] = useState<PaymentMethod>(PaymentMethod.cash);
     const [tip, setTip] = useState('');
     const [tipPaymentMethod, setTipPaymentMethod] = useState<PaymentMethod>(PaymentMethod.cash);
+    const [tipManuallyChanged, setTipManuallyChanged] = useState(false);
 
     const recordPickupMutation = useRecordPickup();
     const { isReady } = useActorReady();
+
+    // Update pickupDate when selectedDate changes
+    useEffect(() => {
+        setPickupDate(selectedDate);
+    }, [selectedDate]);
+
+    // Auto-sync tip payment method to meter payment method for new entries
+    useEffect(() => {
+        if (!tipManuallyChanged) {
+            setTipPaymentMethod(meterPaymentMethod);
+        }
+    }, [meterPaymentMethod, tipManuallyChanged]);
 
     const handleCustomerSelect = (customer: Customer | null) => {
         if (customer) {
@@ -51,13 +66,18 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
         }
     };
 
+    const handleTipPaymentMethodChange = (value: PaymentMethod) => {
+        setTipPaymentMethod(value);
+        setTipManuallyChanged(true);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // Validate only required fields: pickupTime, streetAddress, city (pickup location), and destinationAddress
         const missingFields: string[] = [];
         
-        if (!pickupTime.trim()) {
+        if (!pickupTime) {
             missingFields.push('Pickup Time');
         }
         if (!streetAddress.trim()) {
@@ -91,20 +111,24 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
         }
 
         try {
-            const [hours, minutes] = pickupTime.split(':').map(Number);
-            const pickupDateTime = new Date(pickupDate);
-            pickupDateTime.setHours(hours, minutes, 0, 0);
+            // Convert 12-hour time to Pacific time nanoseconds
+            const pickupTimeNanos = pacificTimeToNanos(
+                pickupDate,
+                pickupTime.hour,
+                pickupTime.minute,
+                pickupTime.isPM
+            );
 
-            const pickupDateOnly = new Date(pickupDate);
-            pickupDateOnly.setHours(0, 0, 0, 0);
+            // Get the Pacific day grouping for this pickup
+            const pickupDateNanos = getPacificDayGrouping(pickupTimeNanos);
 
             await recordPickupMutation.mutateAsync({
-                pickupDate: BigInt(pickupDateOnly.getTime()) * BigInt(1000000),
+                pickupDate: pickupDateNanos,
                 streetAddress: streetAddress.trim(),
                 city: city.trim(),
                 customerName: customerName.trim() || '',
                 phoneNumber: phoneNumber.trim() || '',
-                pickupTime: BigInt(pickupDateTime.getTime()) * BigInt(1000000),
+                pickupTime: pickupTimeNanos,
                 destinationAddress: destinationAddress.trim(),
                 meterTotal: parsedMeterTotal,
                 paymentMethod: meterPaymentMethod,
@@ -114,8 +138,8 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
 
             toast.success('Pickup recorded successfully');
             
-            // Reset form
-            setPickupTime('');
+            // Reset form with current time as default
+            setPickupTime(getCurrentPacificTime());
             setCustomerName('');
             setStreetAddress('');
             setCity('');
@@ -125,6 +149,7 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
             setMeterPaymentMethod(PaymentMethod.cash);
             setTip('');
             setTipPaymentMethod(PaymentMethod.cash);
+            setTipManuallyChanged(false);
 
             onPickupRecorded();
         } catch (error: unknown) {
@@ -171,7 +196,7 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="pickupTime">
+                    <Label>
                         <img 
                             src="/assets/generated/time-icon.dim_32x32.png" 
                             alt="Time" 
@@ -179,11 +204,9 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                         />
                         Pickup Time *
                     </Label>
-                    <Input
-                        id="pickupTime"
-                        type="time"
+                    <TimePicker12h
                         value={pickupTime}
-                        onChange={(e) => setPickupTime(e.target.value)}
+                        onChange={setPickupTime}
                         disabled={!isReady}
                     />
                 </div>
@@ -323,7 +346,7 @@ export default function PickupForm({ selectedDate, onPickupRecorded }: PickupFor
                     <Label htmlFor="tipPaymentMethod">Tip Payment Method</Label>
                     <Select
                         value={tipPaymentMethod}
-                        onValueChange={(value) => setTipPaymentMethod(value as PaymentMethod)}
+                        onValueChange={handleTipPaymentMethodChange}
                         disabled={!isReady}
                     >
                         <SelectTrigger id="tipPaymentMethod">

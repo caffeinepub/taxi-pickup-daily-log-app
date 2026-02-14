@@ -1,12 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the Daily Report regression so multi-day ranges show one aggregated record per day with pickups, the dialog scrolls correctly, and the end-of-period summary is present and accurate.
+**Goal:** Ensure the app always computes and displays the driver’s primary owed total (“Period Total” / per-day total) using the canonical formula, and make voucher tips optional across import and data entry.
 
 **Planned changes:**
-- Update Daily Report backend/frontend aggregation/rendering so returned results produce one daily breakdown card per calendar day with pickups (no collapsing of distinct days), sorted chronologically.
-- Fix the Daily Report dialog layout/styles so the breakdown list and final summary are scrollable and reachable on desktop and mobile.
-- Restore/keep the end-of-period “Summary” section and ensure its totals equal the sum of the displayed daily breakdown totals; keep the existing empty state when there is no data.
-- Add/extend a manual regression check entry to verify: after importing multi-day data, Daily Report shows all days with data and the dialog scrolls to the end summary.
+- Update backend daily report aggregation so per-day totals and the summary “Period Total” are derived from: ((credit meter + voucher meter − cash meter) ÷ 2) + credit tips + voucher tips, while keeping existing meter/tip breakdowns by payment method.
+- Update frontend Daily Report (summary and per-day rows/cards) to display the canonical-formula totals as the primary totals and avoid substituting meter+tips totals in those locations.
+- Make voucher tips supported but optional: allow voucher tip entry/selection, and make imports succeed when tip fields are missing by defaulting missing tip amount to 0 (and applying a sensible default tip payment method).
 
-**User-visible outcome:** When running a Daily Report over a date range, users see a separate card for each day that has pickups (in date order), can scroll through all days on any device, and see an accurate summary at the end (or the normal empty state if no pickups exist).
+**User-visible outcome:** Daily Report “Period Total” and per-day totals consistently match the canonical owed-total formula, and voucher tips can be included when present but are not required for importing or saving entries.

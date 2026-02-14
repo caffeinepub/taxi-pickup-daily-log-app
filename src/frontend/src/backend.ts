@@ -121,6 +121,7 @@ export interface DailyTotals {
     calculatedTotal: number;
     cashTotal: number;
     date: bigint;
+    periodTotal: number;
     creditTipTotal: number;
     owedDriver: number;
     tipTotal: number;
@@ -154,6 +155,7 @@ export interface ReportSummary {
     totalOwedDriver: number;
     totalCashTips: number;
     totalCredit: number;
+    periodTotal: number;
     totalCash: number;
     totalTips: number;
     totalCalculated: number;

@@ -4,15 +4,14 @@ import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
-import Int "mo:base/Int";
 import Float "mo:base/Float";
 import Nat "mo:base/Nat";
 import Cycles "mo:base/ExperimentalCycles";
 import Time "mo:base/Time";
-
-import AccessControl "authorization/access-control";
+import Int "mo:base/Int";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
+import AccessControl "authorization/access-control";
 
 actor TaxiLog {
   let storage = Storage.new();
@@ -70,6 +69,7 @@ actor TaxiLog {
     voucherTipTotal : Float;
     calculatedTotal : Float;
     owedDriver : Float;
+    periodTotal : Float;
   };
 
   type ReportSummary = {
@@ -83,6 +83,7 @@ actor TaxiLog {
     totalVoucherTips : Float;
     totalCalculated : Float;
     totalOwedDriver : Float;
+    periodTotal : Float;
   };
 
   type DailyReport = {
@@ -300,7 +301,7 @@ actor TaxiLog {
       case (null) [];
       case (?pickups) {
         let allPickups = Iter.toArray(natMap.vals(pickups));
-        Array.filter<Pickup>(allPickups, func(pickup) = pickup.pickupDate == selectedDate);
+        Array.filter<Pickup>(allPickups, func(pickup) = getDayStart(pickup.pickupDate) == getDayStart(selectedDate));
       };
     };
   };
@@ -399,6 +400,7 @@ actor TaxiLog {
             totalVoucherTips = 0.0;
             totalCalculated = 0.0;
             totalOwedDriver = 0.0;
+            periodTotal = 0.0;
           };
         };
       };
@@ -452,7 +454,7 @@ actor TaxiLog {
               };
             };
 
-            let owedDriver = ((creditTotal + voucherTotal - cashTotal) / 2.0) + creditTipTotal + voucherTipTotal;
+            let periodTotal = ((creditTotal + voucherTotal - cashTotal) / 2.0) + creditTipTotal + voucherTipTotal;
 
             {
               date;
@@ -465,7 +467,8 @@ actor TaxiLog {
               creditTipTotal;
               voucherTipTotal;
               calculatedTotal;
-              owedDriver;
+              owedDriver = periodTotal;
+              periodTotal;
             };
           },
         );
@@ -492,7 +495,7 @@ actor TaxiLog {
           totalCalculated += daily.calculatedTotal;
         };
 
-        let totalOwedDriver = ((totalCredit + totalVoucher - totalCash) / 2.0) + totalCreditTips + totalVoucherTips;
+        let periodTotal = ((totalCredit + totalVoucher - totalCash) / 2.0) + totalCreditTips + totalVoucherTips;
 
         {
           dailyTotals;
@@ -506,7 +509,8 @@ actor TaxiLog {
             totalCreditTips;
             totalVoucherTips;
             totalCalculated;
-            totalOwedDriver;
+            totalOwedDriver = periodTotal;
+            periodTotal;
           };
         };
       };
@@ -730,24 +734,20 @@ actor TaxiLog {
       Debug.trap("Import failed: No pickup records found in the file.");
     };
 
-    // Remove old data
     userPickups := principalMap.remove(userPickups, caller).0;
     userCustomers := principalMap.remove(userCustomers, caller).0;
 
-    // Create new pickups map
     var pickups = natMap.empty<Pickup>();
     for (pickup in data.pickups.vals()) {
       pickups := natMap.put(pickups, pickup.id, pickup);
     };
     userPickups := principalMap.put(userPickups, caller, pickups);
 
-    // Create new customers map
     var customers = textMap.empty<Customer>();
     for (customer in data.customers.vals()) {
       customers := textMap.put(customers, customer.name, customer);
     };
 
-    // Ensure all pickups have corresponding customers
     for (pickup in data.pickups.vals()) {
       switch (textMap.get(customers, pickup.customerName)) {
         case (null) {
@@ -775,7 +775,6 @@ actor TaxiLog {
 
     userCustomers := principalMap.put(userCustomers, caller, customers);
 
-    // Update next pickup ID to be one greater than the maximum imported ID
     var maxId : Nat = 0;
     for (pickup in data.pickups.vals()) {
       if (pickup.id > maxId) {
@@ -791,19 +790,20 @@ actor TaxiLog {
     userNextPickupId := principalMap.put(userNextPickupId, caller, newNextId);
   };
 
-  public query func getStatus() : async {
+  public query ({ caller }) func getStatus() : async {
     status : Text;
     timestamp : Int;
   } {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Debug.trap("Unauthorized: Only authenticated users can access status");
+    };
     {
       status = "ok";
       timestamp = Time.now();
     };
   };
 
-  /// Helper function to get the start of a day (timestamp at 12:00 AM).
   func getDayStart(date : Int) : Int {
-    // There are 86400000000000 nanoseconds in a day (24 * 60 * 60 * 1000000000).
     let nanosecondsInDay : Int = 86400000000000;
     let daysSinceEpoch = date / nanosecondsInDay;
     daysSinceEpoch * nanosecondsInDay;

@@ -7,13 +7,18 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Download, Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Loader2, Download, Upload, AlertCircle, ChevronDown, Copy, CheckCircle } from 'lucide-react';
 import { useExportData, useImportData } from '../hooks/useQueries';
 import { toast } from 'sonner';
 import { useActorReady } from '../hooks/useActorReady';
-import { getErrorMessage } from '../utils/errorMessage';
-import type { ImportExportData } from '../backend';
+import { getImportErrorSummary, getErrorDetails } from '../utils/errorMessage';
+import { normalizeImportData } from '../utils/importNormalization';
 
 interface ExportImportDialogProps {
     open: boolean;
@@ -21,188 +26,100 @@ interface ExportImportDialogProps {
 }
 
 export default function ExportImportDialog({ open, onOpenChange }: ExportImportDialogProps) {
-    const exportDataMutation = useExportData();
-    const importDataMutation = useImportData();
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importError, setImportError] = useState<{ summary: string; details: string } | null>(null);
+    const [detailsExpanded, setDetailsExpanded] = useState(false);
+    const [detailsCopied, setDetailsCopied] = useState(false);
     const { isReady } = useActorReady();
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+    const exportDataQuery = useExportData();
+    const importDataMutation = useImportData();
 
     const handleExport = async () => {
         try {
-            const data = await exportDataMutation.mutateAsync();
-            const json = JSON.stringify(data, (_, value) =>
+            const data = await exportDataQuery.refetch();
+            if (!data.data) {
+                toast.error('No data to export');
+                return;
+            }
+
+            const jsonString = JSON.stringify(data.data, (key, value) =>
                 typeof value === 'bigint' ? value.toString() : value
-            );
-            const blob = new Blob([json], { type: 'application/json' });
+            , 2);
+
+            const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `taxi-log-export-${new Date().toISOString().split('T')[0]}T${new Date().toTimeString().split(' ')[0].replace(/:/g, '-')}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            const link = document.createElement('a');
+            link.href = url;
+            const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+            link.download = `taxi-log-export-${timestamp}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
+
             toast.success('Data exported successfully');
-        } catch (error: any) {
-            toast.error(getErrorMessage(error));
+        } catch (error: unknown) {
+            const summary = getImportErrorSummary(error);
+            toast.error(summary);
         }
-    };
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-        }
-    };
-
-    const normalizeImportData = (data: any): any => {
-        // Handle legacy/mistyped field names by mapping them to the correct field
-        const normalized = { ...data };
-        
-        // Map common variants of nextPickupId to the correct field name
-        if ('nextpickupupld' in normalized && !('nextPickupId' in normalized)) {
-            normalized.nextPickupId = normalized.nextpickupupld;
-            delete normalized.nextpickupupld;
-        }
-        if ('nextpickupid' in normalized && !('nextPickupId' in normalized)) {
-            normalized.nextPickupId = normalized.nextpickupid;
-            delete normalized.nextpickupid;
-        }
-        if ('next_pickup_id' in normalized && !('nextPickupId' in normalized)) {
-            normalized.nextPickupId = normalized.next_pickup_id;
-            delete normalized.next_pickup_id;
-        }
-        
-        return normalized;
-    };
-
-    const validateImportData = (data: any): { valid: boolean; error?: string } => {
-        // Check top-level structure
-        if (!data || typeof data !== 'object') {
-            return { valid: false, error: 'Invalid file format: expected JSON object' };
-        }
-
-        if (!Array.isArray(data.pickups)) {
-            return { valid: false, error: 'Invalid file format: missing or invalid "pickups" array' };
-        }
-
-        if (!Array.isArray(data.customers)) {
-            return { valid: false, error: 'Invalid file format: missing or invalid "customers" array' };
-        }
-
-        // nextPickupId is now optional - will be computed if missing
-
-        // Validate each pickup record
-        for (let i = 0; i < data.pickups.length; i++) {
-            const pickup = data.pickups[i];
-            const requiredFields = [
-                'id', 'pickupDate', 'streetAddress', 'city', 'customerName',
-                'phoneNumber', 'pickupTime', 'destinationAddress', 'meterTotal',
-                'meterPaymentMethod', 'tip', 'tipPaymentMethod', 'calculatedTotal'
-            ];
-
-            for (const field of requiredFields) {
-                if (!(field in pickup)) {
-                    return {
-                        valid: false,
-                        error: `Invalid pickup record at index ${i}: missing required field "${field}"`
-                    };
-                }
-            }
-
-            // Validate payment method enums
-            const validPaymentMethods = ['cash', 'credit', 'voucher'];
-            if (!validPaymentMethods.includes(pickup.meterPaymentMethod)) {
-                return {
-                    valid: false,
-                    error: `Invalid pickup record at index ${i}: invalid meterPaymentMethod "${pickup.meterPaymentMethod}"`
-                };
-            }
-            if (!validPaymentMethods.includes(pickup.tipPaymentMethod)) {
-                return {
-                    valid: false,
-                    error: `Invalid pickup record at index ${i}: invalid tipPaymentMethod "${pickup.tipPaymentMethod}"`
-                };
-            }
-        }
-
-        return { valid: true };
-    };
-
-    const reconstructNextPickupId = (pickups: any[]): bigint => {
-        // Find the maximum pickup ID and add 1
-        if (pickups.length === 0) {
-            return 0n;
-        }
-
-        let maxId = 0n;
-        for (const pickup of pickups) {
-            const pickupId = typeof pickup.id === 'bigint' ? pickup.id : BigInt(pickup.id);
-            if (pickupId > maxId) {
-                maxId = pickupId;
-            }
-        }
-
-        return maxId + 1n;
     };
 
     const handleImport = async () => {
-        if (!selectedFile) {
+        if (!importFile) {
             toast.error('Please select a file to import');
             return;
         }
 
+        // Clear previous errors
+        setImportError(null);
+        setDetailsExpanded(false);
+        setDetailsCopied(false);
+
         try {
-            const text = await selectedFile.text();
-            
-            // Parse JSON with BigInt revival for all relevant fields
-            let parsedData = JSON.parse(text, (key, value) => {
-                // Convert string representations back to BigInt for all bigint fields
-                if (key === 'id' || key === 'pickupDate' || key === 'pickupTime' || key === 'nextPickupId') {
-                    // Handle both string and number inputs
-                    if (typeof value === 'string' || typeof value === 'number') {
-                        try {
-                            return BigInt(value);
-                        } catch {
-                            return value; // Keep original if conversion fails, validation will catch it
-                        }
-                    }
-                }
-                return value;
-            });
+            const fileContent = await importFile.text();
+            const rawData = JSON.parse(fileContent);
 
-            // Normalize field names (handle legacy/mistyped variants)
-            parsedData = normalizeImportData(parsedData);
+            // Normalize imported data (handles legacy formats)
+            const normalizedData = normalizeImportData(rawData);
 
-            // Validate the imported data structure
-            const validation = validateImportData(parsedData);
-            if (!validation.valid) {
-                toast.error(validation.error || 'Invalid import file format');
-                return;
-            }
+            // Import to backend
+            await importDataMutation.mutateAsync(normalizedData);
 
-            // Reconstruct nextPickupId if missing (backward compatibility)
-            if (typeof parsedData.nextPickupId === 'undefined' || parsedData.nextPickupId === null) {
-                parsedData.nextPickupId = reconstructNextPickupId(parsedData.pickups);
-            }
-
-            // Import the data
-            await importDataMutation.mutateAsync(parsedData as ImportExportData);
-            
-            toast.success(`Successfully imported ${parsedData.pickups.length} pickup record(s)`);
-            setSelectedFile(null);
+            toast.success('Data imported successfully');
+            setImportFile(null);
             onOpenChange(false);
-        } catch (error: any) {
-            if (error instanceof SyntaxError) {
-                toast.error('Invalid JSON file format');
-            } else {
-                toast.error(getErrorMessage(error));
+        } catch (error: unknown) {
+            const summary = getImportErrorSummary(error);
+            const details = getErrorDetails(error);
+            
+            setImportError({ summary, details });
+            toast.error(summary);
+        }
+    };
+
+    const handleCopyDetails = async () => {
+        if (importError) {
+            try {
+                await navigator.clipboard.writeText(importError.details);
+                setDetailsCopied(true);
+                setTimeout(() => setDetailsCopied(false), 2000);
+            } catch {
+                toast.error('Failed to copy details');
             }
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setImportFile(e.target.files?.[0] || null);
+        setImportError(null);
+        setDetailsExpanded(false);
+        setDetailsCopied(false);
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md bg-card text-card-foreground border border-border shadow-lg">
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col bg-card text-card-foreground border border-border shadow-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <img 
@@ -210,80 +127,133 @@ export default function ExportImportDialog({ open, onOpenChange }: ExportImportD
                             alt="Export/Import" 
                             className="w-6 h-6"
                         />
-                        Export/Import Data
+                        Export / Import Data
                     </DialogTitle>
                     <DialogDescription>
-                        Backup your data or restore from a previous export
+                        Backup your data or restore from a previous backup
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs defaultValue="export" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="export">Export</TabsTrigger>
-                        <TabsTrigger value="import">Import</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="export" className="space-y-4 py-4">
-                        <p className="text-sm text-muted-foreground">
-                            Download all your pickup records and customer data as a JSON file.
-                        </p>
-                        <Button
-                            onClick={handleExport}
-                            disabled={exportDataMutation.isPending || !isReady}
-                            className="w-full"
-                        >
-                            {exportDataMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Exporting...
-                                </>
-                            ) : !isReady ? (
-                                'Connecting...'
-                            ) : (
-                                <>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export Data
-                                </>
-                            )}
-                        </Button>
-                    </TabsContent>
-                    <TabsContent value="import" className="space-y-4 py-4">
-                        <p className="text-sm text-muted-foreground">
-                            Import data from a previously exported JSON file. This will replace all existing data.
-                        </p>
-                        <div className="space-y-2">
-                            <input
-                                type="file"
-                                accept=".json"
-                                onChange={handleFileSelect}
-                                className="w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                                disabled={!isReady}
-                            />
-                            {selectedFile && (
-                                <p className="text-sm text-muted-foreground">
-                                    Selected: {selectedFile.name}
-                                </p>
-                            )}
+
+                <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-6 py-4">
+                        <div className="space-y-4">
+                            <h3 className="font-semibold">Export Data</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Download all your pickup records and customer data as a JSON file
+                            </p>
+                            <Button
+                                onClick={handleExport}
+                                disabled={exportDataQuery.isFetching || !isReady}
+                                className="w-full"
+                            >
+                                {exportDataQuery.isFetching ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Exporting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export Data
+                                    </>
+                                )}
+                            </Button>
                         </div>
-                        <Button
-                            onClick={handleImport}
-                            disabled={importDataMutation.isPending || !selectedFile || !isReady}
-                            className="w-full"
-                        >
-                            {importDataMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Importing...
-                                </>
-                            ) : !isReady ? (
-                                'Connecting...'
-                            ) : (
-                                <>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Import Data
-                                </>
+
+                        <Separator />
+
+                        <div className="space-y-4">
+                            <h3 className="font-semibold">Import Data</h3>
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Warning: Importing will replace all existing data. Make sure to export your current data first.
+                                </AlertDescription>
+                            </Alert>
+
+                            {importError && (
+                                <Alert variant="destructive" className="space-y-2">
+                                    <div className="flex items-start gap-2">
+                                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1 space-y-2">
+                                            <AlertTitle>Import Failed</AlertTitle>
+                                            <AlertDescription className="text-sm break-words">
+                                                {importError.summary}
+                                            </AlertDescription>
+                                            
+                                            <Collapsible open={detailsExpanded} onOpenChange={setDetailsExpanded}>
+                                                <CollapsibleTrigger asChild>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="w-full mt-2"
+                                                    >
+                                                        <ChevronDown className={`h-4 w-4 mr-2 transition-transform ${detailsExpanded ? 'rotate-180' : ''}`} />
+                                                        {detailsExpanded ? 'Hide' : 'Show'} Technical Details
+                                                    </Button>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 space-y-2">
+                                                    <ScrollArea className="h-32 w-full rounded border bg-muted/50 p-2">
+                                                        <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                                                            {importError.details}
+                                                        </pre>
+                                                    </ScrollArea>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="w-full"
+                                                        onClick={handleCopyDetails}
+                                                    >
+                                                        {detailsCopied ? (
+                                                            <>
+                                                                <CheckCircle className="h-4 w-4 mr-2" />
+                                                                Copied!
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy className="h-4 w-4 mr-2" />
+                                                                Copy Details
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        </div>
+                                    </div>
+                                </Alert>
                             )}
-                        </Button>
-                    </TabsContent>
-                </Tabs>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="import-file">Select JSON File</Label>
+                                <Input
+                                    id="import-file"
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleFileChange}
+                                    disabled={!isReady}
+                                />
+                            </div>
+                            <Button
+                                onClick={handleImport}
+                                disabled={!importFile || importDataMutation.isPending || !isReady}
+                                variant="destructive"
+                                className="w-full"
+                            >
+                                {importDataMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Importing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Import Data
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </ScrollArea>
             </DialogContent>
         </Dialog>
     );
